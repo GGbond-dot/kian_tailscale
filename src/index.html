@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Kian Remote Lab</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <script type="module" src="./main.js" defer></script>
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="topbar">
+        <div class="brand">
+          <img class="brand-icon" src="./assets/app-icon.png" alt="" />
+          <div>
+            <p class="eyebrow">DK2500 CONTROL PLANE</p>
+            <h1>Kian Remote Lab</h1>
+          </div>
+        </div>
+        <div class="header-actions">
+          <button id="new-terminal" class="secondary" type="button" title="New terminal (Ctrl+Shift+T)">
+            <span aria-hidden="true">+</span> New Terminal
+          </button>
+          <button id="refresh" class="icon-button" type="button" aria-label="Refresh status" title="Refresh status (Ctrl+Shift+R)">
+            <span aria-hidden="true">&#8635;</span>
+          </button>
+        </div>
+      </header>
+
+      <div class="workspace-layout">
+        <section class="terminal-shell" aria-label="SSH Terminal">
+          <div class="terminal-bar">
+            <div id="terminal-tabs" class="terminal-tabs" role="tablist" aria-label="SSH terminals"></div>
+            <span id="terminal-target" class="terminal-target">DISCONNECTED</span>
+          </div>
+          <div id="terminal-stack" class="terminal-stack"></div>
+        </section>
+
+        <aside class="status-panel" aria-label="Connection overview">
+          <div class="health-list">
+            <article class="health-item">
+              <span id="tailscale-dot" class="dot" data-state="loading"></span>
+              <div><span class="label">TAILSCALE</span><strong id="tailscale-state">Checking...</strong></div>
+            </article>
+            <article class="health-item">
+              <span id="device-dot" class="dot" data-state="loading"></span>
+              <div><span class="label">DK2500</span><strong id="device-state">Checking...</strong></div>
+            </article>
+          </div>
+
+          <dl class="device-details">
+            <div><dt>TAILSCALE IP</dt><dd id="ip-address">&mdash;</dd></div>
+            <div><dt>HOSTNAME</dt><dd id="hostname">&mdash;</dd></div>
+            <div><dt>OPERATING SYSTEM</dt><dd id="os">&mdash;</dd></div>
+          </dl>
+
+          <button id="connect" class="primary" type="button" title="Connect or disconnect (Ctrl+Shift+Enter)" disabled>
+            <span class="connect-symbol" aria-hidden="true">&gt;_</span>
+            <span class="connect-label">Connect</span>
+          </button>
+          <div class="status-line">
+            <span id="status-message">Reading Tailscale status...</span>
+            <span class="refresh-rate">AUTO REFRESH&nbsp; 4S</span>
+          </div>
+        </aside>
+      </div>
+    </main>
+  </body>
+</html>

@@ -1,0 +1,24 @@
+{
+  "name": "kian-remote-lab",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "tauri": "tauri",
+    "dev": "tauri dev",
+    "build": "tauri build",
+    "frontend:dev": "vite --port 1420",
+    "frontend:build": "vite build",
+    "frontend:check": "node --check src/main.js",
+    "lint": "npm run frontend:check && cargo fmt --manifest-path src-tauri/Cargo.toml -- --check && cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2",
+    "vite": "^8.2.2"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.11.1",
+    "@xterm/addon-fit": "^0.11.0",
+    "@xterm/xterm": "^6.0.0"
+  }
+}

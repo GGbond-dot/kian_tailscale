@@ -1,0 +1,44 @@
+mod tailscale;
+mod terminal;
+
+use tauri::Manager;
+
+#[tauri::command]
+async fn get_lab_status() -> tailscale::LabStatus {
+    tauri::async_runtime::spawn_blocking(tailscale::read_lab_status)
+        .await
+        .unwrap_or_else(|error| tailscale::LabStatus::unavailable(true, Some(error.to_string())))
+}
+
+#[tauri::command]
+fn toggle_fullscreen(window: tauri::WebviewWindow) -> Result<bool, String> {
+    let next = !window
+        .is_fullscreen()
+        .map_err(|error| format!("Unable to read fullscreen state: {error}"))?;
+    window
+        .set_fullscreen(next)
+        .map_err(|error| format!("Unable to change fullscreen state: {error}"))?;
+    Ok(next)
+}
+
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
+pub fn run() {
+    tauri::Builder::default()
+        .manage(terminal::TerminalState::default())
+        .invoke_handler(tauri::generate_handler![
+            get_lab_status,
+            toggle_fullscreen,
+            terminal::connect_ssh,
+            terminal::terminal_write,
+            terminal::terminal_resize,
+            terminal::disconnect_ssh
+        ])
+        .on_window_event(|window, event| {
+            if matches!(event, tauri::WindowEvent::Destroyed) {
+                let state = window.app_handle().state::<terminal::TerminalState>();
+                let _ = terminal::close_window_sessions(&state, window.label());
+            }
+        })
+        .run(tauri::generate_context!())
+        .expect("error while running tauri application");
+}
