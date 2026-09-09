@@ -2,6 +2,10 @@
   "name": "kian-remote-lab",
   "private": true,
   "version": "0.1.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/GGbond-dot/kian_tailscale.git"
+  },
   "type": "module",
   "scripts": {
     "tauri": "tauri",
@@ -10,7 +14,11 @@
     "frontend:dev": "vite --port 1420",
     "frontend:build": "vite build",
     "frontend:check": "node --check src/main.js",
-    "lint": "npm run frontend:check && cargo fmt --manifest-path src-tauri/Cargo.toml -- --check && cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings"
+    "lint": "npm run frontend:check && cargo fmt --manifest-path src-tauri/Cargo.toml -- --check && cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings",
+    "test": "cargo test --manifest-path src-tauri/Cargo.toml && npm --prefix vscode-extension test",
+    "extension:lint": "npm --prefix vscode-extension run lint",
+    "extension:package": "npm --prefix vscode-extension run package",
+    "verify": "npm run lint && npm run extension:lint && npm run test && npm run frontend:build && npm run extension:package"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2",

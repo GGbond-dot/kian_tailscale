@@ -54,10 +54,16 @@
             <div><dt>OPERATING SYSTEM</dt><dd id="os">&mdash;</dd></div>
           </dl>
 
-          <button id="connect" class="primary" type="button" title="Connect or disconnect (Ctrl+Shift+Enter)" disabled>
-            <span class="connect-symbol" aria-hidden="true">&gt;_</span>
-            <span class="connect-label">Connect</span>
-          </button>
+          <div class="action-stack">
+            <button id="connect" class="primary" type="button" title="Connect or disconnect (Ctrl+Shift+Enter)" disabled>
+              <span class="connect-symbol" aria-hidden="true">&gt;_</span>
+              <span class="connect-label">Connect</span>
+            </button>
+            <button id="open-vscode" class="vscode-action" type="button" title="Open /home/kian with VS Code Remote - SSH (Ctrl+Shift+O)" disabled>
+              <span aria-hidden="true">&lt;/&gt;</span>
+              <span>Open in VS Code</span>
+            </button>
+          </div>
           <div class="status-line">
             <span id="status-message">Reading Tailscale status...</span>
             <span class="refresh-rate">AUTO REFRESH&nbsp; 4S</span>

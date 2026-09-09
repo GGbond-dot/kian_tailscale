@@ -6,6 +6,7 @@ import "@xterm/xterm/css/xterm.css";
 
 const REFRESH_INTERVAL_MS = 4_000;
 let refreshing = false;
+let openingVsCode = false;
 let currentStatus = null;
 let activeTerminalId = null;
 let terminalNumber = 0;
@@ -24,6 +25,7 @@ const elements = {
   newTerminal: document.querySelector("#new-terminal"),
   connect: document.querySelector("#connect"),
   connectLabel: document.querySelector(".connect-label"),
+  openVsCode: document.querySelector("#open-vscode"),
   terminalTabs: document.querySelector("#terminal-tabs"),
   terminalStack: document.querySelector("#terminal-stack"),
   terminalTarget: document.querySelector("#terminal-target"),
@@ -57,6 +59,7 @@ function updateActiveControls() {
   elements.connectLabel.textContent = connected ? "Disconnect" : "Connect";
   elements.connect.classList.toggle("danger", connected);
   elements.connect.disabled = !workspace || workspace.connecting || (!connected && !canConnect());
+  elements.openVsCode.disabled = openingVsCode || !canConnect();
   elements.terminalTarget.textContent = workspace?.target ?? "DISCONNECTED";
 }
 
@@ -266,6 +269,22 @@ async function toggleActiveConnection() {
   else await connectWorkspace(workspace);
 }
 
+async function openInVsCode() {
+  if (openingVsCode || !canConnect()) return;
+  openingVsCode = true;
+  updateActiveControls();
+  elements.message.textContent = "Opening DK2500 in VS Code...";
+  try {
+    const launch = await invoke("open_in_vscode");
+    elements.message.textContent = `VS Code opening ${launch.target}:${launch.folder}`;
+  } catch (error) {
+    elements.message.textContent = `Unable to open VS Code: ${error}`;
+  } finally {
+    openingVsCode = false;
+    updateActiveControls();
+  }
+}
+
 function cycleTerminal(direction) {
   const ids = Array.from(workspaces.keys());
   if (ids.length < 2) return;
@@ -292,6 +311,7 @@ await listen("terminal-exit", ({ payload }) => {
 
 elements.connect.addEventListener("click", toggleActiveConnection);
 elements.newTerminal.addEventListener("click", createAndMaybeConnect);
+elements.openVsCode.addEventListener("click", openInVsCode);
 elements.refresh.addEventListener("click", refreshStatus);
 window.addEventListener("keydown", async (event) => {
   if (event.isComposing) return;
@@ -315,6 +335,9 @@ window.addEventListener("keydown", async (event) => {
   } else if (event.ctrlKey && event.shiftKey && key === "r") {
     event.preventDefault();
     refreshStatus();
+  } else if (event.ctrlKey && event.shiftKey && key === "o") {
+    event.preventDefault();
+    openInVsCode();
   } else if (event.ctrlKey && event.shiftKey && event.key === "Enter") {
     event.preventDefault();
     toggleActiveConnection();

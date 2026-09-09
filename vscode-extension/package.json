@@ -1,0 +1,95 @@
+{
+  "name": "kian-remote-lab",
+  "displayName": "Kian Remote Lab",
+  "description": "Manage and open the DK2500 Tailscale host from VS Code.",
+  "version": "0.1.1",
+  "publisher": "kian-lab",
+  "private": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/GGbond-dot/kian_tailscale.git",
+    "directory": "vscode-extension"
+  },
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": ["Other"],
+  "keywords": ["ssh", "remote", "tailscale", "dk2500"],
+  "main": "./extension.js",
+  "extensionKind": ["ui"],
+  "activationEvents": [
+    "onView:kianRemoteLab.dashboard",
+    "onCommand:kianRemoteLab.refresh",
+    "onCommand:kianRemoteLab.openRemote",
+    "onCommand:kianRemoteLab.openTerminal"
+  ],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": true
+    }
+  },
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "kianRemoteLab",
+          "title": "Kian Remote Lab",
+          "icon": "media/lab.svg"
+        }
+      ]
+    },
+    "views": {
+      "kianRemoteLab": [
+        {
+          "id": "kianRemoteLab.dashboard",
+          "name": "DK2500",
+          "type": "webview",
+          "icon": "media/lab.svg",
+          "contextualTitle": "Kian Remote Lab"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "kianRemoteLab.refresh",
+        "title": "Refresh DK2500 Status",
+        "category": "Kian Remote Lab",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "kianRemoteLab.openRemote",
+        "title": "Open DK2500 in New Window",
+        "category": "Kian Remote Lab",
+        "icon": "$(remote)"
+      },
+      {
+        "command": "kianRemoteLab.openTerminal",
+        "title": "New DK2500 SSH Terminal",
+        "category": "Kian Remote Lab",
+        "icon": "$(terminal)"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "kianRemoteLab.refresh",
+          "when": "view == kianRemoteLab.dashboard",
+          "group": "navigation@1"
+        },
+        {
+          "command": "kianRemoteLab.openTerminal",
+          "when": "view == kianRemoteLab.dashboard",
+          "group": "navigation@2"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "lint": "node --check extension.js && node --check tailscale.js",
+    "test": "node --test test/*.test.js",
+    "package": "vsce package --no-dependencies"
+  },
+  "devDependencies": {
+    "@vscode/vsce": "^3.6.2"
+  }
+}

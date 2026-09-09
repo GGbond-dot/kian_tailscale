@@ -1,5 +1,6 @@
 mod tailscale;
 mod terminal;
+mod vscode;
 
 use tauri::Manager;
 
@@ -31,7 +32,8 @@ pub fn run() {
             terminal::connect_ssh,
             terminal::terminal_write,
             terminal::terminal_resize,
-            terminal::disconnect_ssh
+            terminal::disconnect_ssh,
+            vscode::open_in_vscode
         ])
         .on_window_event(|window, event| {
             if matches!(event, tauri::WindowEvent::Destroyed) {
