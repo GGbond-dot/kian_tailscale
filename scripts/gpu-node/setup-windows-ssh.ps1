@@ -25,11 +25,19 @@ $lines = if (Test-Path $SshdConfig) { Get-Content $SshdConfig } else { @() }
 $lines = @($lines | Where-Object { $_ -notmatch '^\s*(Port|PasswordAuthentication|PubkeyAuthentication|AllowUsers|Subsystem|Match)\b' })
 $lines += @("Port $Port", "PubkeyAuthentication yes", "PasswordAuthentication yes", "AllowUsers $env:USERNAME", "Subsystem sftp sftp-server.exe")
 Set-Content -Path $SshdConfig -Value $lines -Encoding ascii
+# Windows can leave zero-byte host-key placeholders after capability install.
+# Remove only those exact placeholders, then let OpenSSH regenerate missing keys.
+Get-ChildItem "$env:ProgramData\ssh\ssh_host_*" -File -ErrorAction SilentlyContinue |
+  Where-Object { $_.Length -eq 0 } | Remove-Item -Force
+& "$env:WINDIR\System32\OpenSSH\ssh-keygen.exe" -A
+if ($LASTEXITCODE -ne 0) { throw "Unable to generate OpenSSH host keys" }
 & "$env:WINDIR\System32\OpenSSH\sshd.exe" -t -f $SshdConfig
 New-Item -Path "HKLM:\SOFTWARE\OpenSSH" -Force | Out-Null
 New-ItemProperty -Path "HKLM:\SOFTWARE\OpenSSH" -Name DefaultShell -Value "$env:WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -PropertyType String -Force | Out-Null
 Set-Service -Name sshd -StartupType Automatic
 Start-Service sshd -ErrorAction SilentlyContinue
+$service = Get-Service -Name sshd
+if ($service.Status -ne "Running") { throw "Windows OpenSSH service is not running" }
 New-NetFirewallRule -Name "OpenSSH-Server-In-TCP-2224-KianRemoteLab" -DisplayName "Kian Remote Lab Windows SSH" -Direction Inbound -Action Allow -Protocol TCP -LocalPort $Port -Profile Any -ErrorAction SilentlyContinue | Out-Null
 
 $tailscale = "C:\Program Files\Tailscale\tailscale.exe"
