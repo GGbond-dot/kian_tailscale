@@ -11,7 +11,8 @@ $Port = 2224
 $principal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
 if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) { throw "Run as Administrator." }
 
-if (-not (Get-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0).State -eq "Installed") {
+$capability = Get-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0
+if ($capability.State -ne "Installed") {
   Add-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0 | Out-Null
 }
 New-Item -ItemType Directory -Force -Path "$env:ProgramData\ssh", (Split-Path $AuthorizedKeys) | Out-Null
