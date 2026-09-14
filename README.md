@@ -99,7 +99,7 @@ The idempotent setup:
 - creates the silent current-user scheduled task `Kian Remote Lab GPU Bridge`;
 - exposes only Tailscale TCP 2222 to that bridge.
 
-The bridge listens only on Windows `127.0.0.1:2223`, discovers the current Ubuntu WSL NAT address, and forwards only to SSH port 22. Tailscale Serve is the only tailnet-facing entry point. The task checks the bridge once per minute while the Windows user is logged in, and a cold SSH request can start WSL automatically. The desktop App does not need to be open: the hidden bridge task and the Tailscale Windows service provide the background path.
+The bridge listens only on Windows `127.0.0.1:2223`, discovers the current Ubuntu WSL NAT address, and forwards only to SSH port 22. Tailscale Serve is the only tailnet-facing entry point. The task checks the bridge once per minute while the Windows user is logged in, and a cold SSH request can start WSL automatically. The bridge also holds an explicit hidden WSL process because systemd services alone do not keep a WSL distribution alive. The desktop App does not need to be open: the hidden bridge task and the Tailscale Windows service provide the background path.
 
 A Windows PC that is actually asleep cannot accept a Tailscale connection;
 background residency cannot override system sleep. With `-KeepHostAwake`, leave
