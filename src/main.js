@@ -45,6 +45,8 @@ function terminalOptions() {
     fontSize: 13,
     lineHeight: 1.2,
     scrollback: 5_000,
+    scrollSensitivity: 1,
+    fastScrollSensitivity: 5,
     theme: {
       background: "#06090e", foreground: "#d9e1ec", cursor: "#62e6ac",
       cursorAccent: "#06090e", selectionBackground: "#314156", black: "#171d27",
@@ -52,6 +54,36 @@ function terminalOptions() {
       magenta: "#b89cf5", cyan: "#61d6e5", white: "#d9e1ec",
     },
   };
+}
+
+function installTerminalScrollHandler(workspace) {
+  workspace.terminal.attachCustomWheelEventHandler((event) => {
+    // Preserve application mouse reporting in alternate-screen programs such
+    // as vim, less and top; only handle the normal scrollback buffer here.
+    if (workspace.terminal.buffer.active !== workspace.terminal.buffer.normal) return true;
+    if (event.deltaY === 0 || event.ctrlKey) return true;
+
+    const lineHeight = workspace.terminal.options.fontSize * workspace.terminal.options.lineHeight;
+    let deltaLines;
+    if (event.deltaMode === WheelEvent.DOM_DELTA_LINE) {
+      deltaLines = event.deltaY;
+    } else if (event.deltaMode === WheelEvent.DOM_DELTA_PAGE) {
+      deltaLines = event.deltaY * workspace.terminal.rows;
+    } else {
+      deltaLines = event.deltaY / Math.max(1, lineHeight);
+    }
+
+    const sensitivity = event.altKey
+      ? workspace.terminal.options.fastScrollSensitivity
+      : workspace.terminal.options.scrollSensitivity;
+    workspace.wheelRemainder += deltaLines * sensitivity;
+    const lines = Math.trunc(workspace.wheelRemainder);
+    if (lines !== 0) {
+      workspace.terminal.scrollLines(lines);
+      workspace.wheelRemainder -= lines;
+    }
+    return false;
+  });
 }
 
 function setIndicator(dot, state) {
@@ -248,9 +280,10 @@ function createTerminal(deviceId = "dk2500") {
   terminal.loadAddon(fitAddon);
   const workspace = {
     clientId, deviceId, sessionId: null, target: "DISCONNECTED", connecting: false,
-    opened: false, resizePending: false, writeQueue: Promise.resolve(),
+    opened: false, resizePending: false, wheelRemainder: 0, writeQueue: Promise.resolve(),
     terminal, fitAddon, container, tab,
   };
+  installTerminalScrollHandler(workspace);
   workspace.resizeObserver = new ResizeObserver(() => resizeWorkspace(workspace));
   workspace.resizeObserver.observe(container);
   workspaces.set(clientId, workspace);
@@ -379,7 +412,13 @@ window.addEventListener("keydown", async (event) => {
   if (event.isComposing) return;
   const key = event.key.toLowerCase();
 
-  if (event.ctrlKey && event.shiftKey && key === "t") {
+  if (event.shiftKey && event.key === "PageUp") {
+    event.preventDefault();
+    activeWorkspace()?.terminal.scrollPages(-1);
+  } else if (event.shiftKey && event.key === "PageDown") {
+    event.preventDefault();
+    activeWorkspace()?.terminal.scrollPages(1);
+  } else if (event.ctrlKey && event.shiftKey && key === "t") {
     event.preventDefault();
     createAndMaybeConnect();
   } else if (event.ctrlKey && event.shiftKey && key === "w") {

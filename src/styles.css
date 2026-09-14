@@ -130,7 +130,11 @@ dd { margin: 0; overflow: hidden; color: #dce5f0; font: 500 13px/1.2 ui-monospac
 .terminal-pane { position: absolute; inset: 0; display: none; min-height: 0; padding: 12px 14px; }
 .terminal-pane.active { display: block; }
 .terminal-pane .xterm { height: 100%; }
-.terminal-pane .xterm-viewport { scrollbar-color: #2c384b #06090e; }
+.terminal-pane .xterm-viewport {
+  overflow-y: scroll !important;
+  overscroll-behavior: contain;
+  scrollbar-color: #2c384b #06090e;
+}
 
 @media (max-width: 900px) {
   .workspace-layout { grid-template-columns: 1fr; grid-template-rows: minmax(360px, 1fr) auto; }
