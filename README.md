@@ -1,131 +1,133 @@
 # Kian Remote Lab
 
-Kian Remote Lab 是一个用于管理 DK2500 Linux 主机的 Windows 工具集，包含：
+Kian Remote Lab is a Windows Tauri desktop app and VS Code companion extension for a private Tailscale lab.
 
-- Tauri 2 桌面 App
-- VS Code 侧边栏扩展
+Version 0.2.0 manages two fixed, allowlisted nodes:
 
-两者都只调用本机 Tailscale CLI 和 Windows OpenSSH，不实现 Tailscale 协议，也不读取或保存 SSH 密码。
+| Node | Tailscale hostname | SSH | Purpose |
+| --- | --- | --- | --- |
+| DK2500 | `dk2500` | `kian@<current-ip>:22` | Linux server |
+| Desktop 5060 | `desktop-ltuqmcm` | `kian@<current-ip>:2222` | RTX 5060 / Ubuntu 22.04 on WSL2 |
 
-## 当前功能
+The current Tailscale IP is always read from local `tailscale.exe status --json` output. No node IP is hardcoded into an SSH command.
 
-### Windows 桌面 App V0.1
+## Features
 
-- 每 4 秒调用 `C:\Program Files\Tailscale\tailscale.exe status --json`
-- 自动查找 hostname 为 `dk2500` 的设备
-- 显示 Online、Tailscale IP、Hostname 和 OS
-- 使用 `C:\Windows\System32\OpenSSH\ssh.exe` 和用户 `kian`
-- xterm.js + `portable-pty`/ConPTY 内置交互式 SSH Terminal
-- 支持 ANSI 颜色、Ctrl+C、窗口 resize 和多个终端标签
-- 可直接用 VS Code Remote SSH 打开 DK2500 的 `/home/kian`
+- Refreshes both nodes every 4 seconds and shows Online, IP, hostname, OS, and role.
+- Embedded xterm.js terminals backed by Windows ConPTY and `ssh.exe`.
+- Multiple terminal tabs inside one App window.
+- Interactive SSH, Ctrl+C, ANSI color, resize, and full-screen terminal programs.
+- Opens a selected node with VS Code Remote - SSH.
+- VS Code side panel with per-node Open Code and Terminal actions.
+- Does not read, transmit, or store SSH passwords.
+- Backends accept only fixed device IDs; the UI cannot submit an arbitrary executable, host, user, port, or shell command.
 
-### VS Code 扩展 V0.1.1
+## Install on the laptop
 
-- 在 Activity Bar 提供 Kian Remote Lab 状态视图
-- 每 4 秒自动读取 DK2500 状态与当前 IP
-- `Open /home/kian`：在新 VS Code Remote SSH 窗口打开远端目录
-- `New SSH Terminal`：
-  - 本地窗口通过 Windows `ssh.exe` 连接 DK2500
-  - 已连接 DK2500 的 Remote SSH 窗口直接打开远端 Linux shell
-- VS Code 不允许扩展强制指定 Secondary Side Bar。首次安装后，把 K 图标拖到右侧一次即可，VS Code 会记住布局
+Prerequisites:
 
-## 在另一台 Windows 电脑上搭建
-
-### 1. 系统依赖
-
-需要安装：
-
-- Git
-- Tailscale，并登录同一个 Tailnet
+- Tailscale, logged in to the same tailnet
 - Windows OpenSSH Client
-- Visual Studio 2022 Build Tools：选择 `Desktop development with C++`、MSVC 工具集和 Windows SDK；不需要安装完整 Visual Studio IDE
-- Rust stable MSVC toolchain
-- Node.js `20.19+` 或 `22.12+`
-- Microsoft Edge WebView2 Runtime（Windows 10/11 通常已经包含）
-- VS Code
-- VS Code 扩展 `Remote - SSH`（`ms-vscode-remote.remote-ssh`）
+- Visual Studio Code plus `ms-vscode-remote.remote-ssh`
+- Git, Node.js 20.19+ or 22.12+, Rust stable MSVC
+- Visual Studio 2022 Build Tools with Desktop development with C++, MSVC, and a Windows SDK
+- WebView2 Runtime
 
-验证环境：
-
-```powershell
-git --version
-rustc --version
-cargo --version
-node --version
-npm --version
-& 'C:\Program Files\Tailscale\tailscale.exe' status --json
-& 'C:\Windows\System32\OpenSSH\ssh.exe' kian@100.68.98.65
-```
-
-SSH 命令中的 IP 仅用于首次人工验证；程序运行时会从 Tailscale JSON 自动读取当前 IP。
-
-### 2. 克隆与安装依赖
+Visual Studio Build Tools supplies the compiler/linker used by Rust/Tauri; the full Visual Studio IDE is not required.
 
 ```powershell
 git clone https://github.com/GGbond-dot/kian_tailscale.git
 cd kian_tailscale
 npm ci
 npm --prefix vscode-extension ci
-```
-
-### 3. 验证整个仓库
-
-```powershell
 npm run verify
+npm run build
+npm run extension:package
 ```
 
-该命令会运行前端语法检查、Rust fmt/clippy/test、VS Code 扩展 lint/test、前端构建和 VSIX 打包。
-
-### 4. 运行和构建桌面 App
-
-开发运行：
+Install the generated artifacts:
 
 ```powershell
+Start-Process ".\src-tauri\target\release\bundle\msi\Kian Remote Lab_0.2.0_x64_en-US.msi"
+code --install-extension .\vscode-extension\kian-remote-lab-0.2.0.vsix --force
+```
+
+The exact MSI filename can vary slightly; it is always under `src-tauri/target/release/bundle/msi/`.
+
+### First laptop SSH key setup
+
+The App supports an interactive password prompt, so the first connection works without saving a password. To switch the laptop to key authentication:
+
+```powershell
+if (-not (Test-Path $env:USERPROFILE\.ssh\id_ed25519.pub)) {
+  ssh-keygen -t ed25519
+}
+Get-Content $env:USERPROFILE\.ssh\id_ed25519.pub |
+  ssh -p 2222 kian@desktop-ltuqmcm "umask 077; mkdir -p ~/.ssh; cat >> ~/.ssh/authorized_keys"
+```
+
+Enter the WSL password once. Repeat the equivalent command for DK2500 on port 22 if needed. Never commit a private key.
+
+## Desktop 5060 GPU node
+
+The training environment is native Linux tooling inside Ubuntu 22.04 on WSL2. Windows keeps the NVIDIA driver and Tailscale client; WSL does not run a second Tailscale client.
+
+On Desktop 5060, run from a normal PowerShell window:
+
+```powershell
+.\scripts\gpu-node\setup-wsl.ps1
+```
+
+The idempotent setup:
+
+- installs and enables OpenSSH Server, Git, rsync, Python venv/pip, and tmux in WSL;
+- creates `~/projects`, `~/datasets`, and `~/checkpoints`;
+- exposes WSL's NVIDIA `nvidia-smi`;
+- imports the current Windows user's public Ed25519 key when present;
+- installs a fixed local bridge at `%LOCALAPPDATA%\KianRemoteLab\gpu-node`;
+- creates the current-user scheduled task `Kian Remote Lab GPU Bridge`;
+- exposes only Tailscale TCP 2222 to that bridge.
+
+The bridge listens only on Windows `127.0.0.1:2223`, discovers the current Ubuntu WSL NAT address, and forwards only to SSH port 22. Tailscale Serve is the only tailnet-facing entry point. The task checks the bridge once per minute while the Windows user is logged in, and a cold SSH request can start WSL automatically.
+
+Health checks:
+
+```powershell
+schtasks /Query /TN "Kian Remote Lab GPU Bridge" /V /FO LIST
+& 'C:\Program Files\Tailscale\tailscale.exe' serve status
+ssh -p 2222 kian@desktop-ltuqmcm
+```
+
+## Development
+
+### Remote - SSH compatibility
+
+If Open Code waits forever before `ssh.exe` starts, inspect `Remote - SSH: Show Log`. A `PendingMigrationError: navigator is now a global in nodejs` is an upstream VS Code/Remote-SSH compatibility issue, not an SSH authentication failure. Update VS Code and Remote - SSH (including its pre-release channel when appropriate). The embedded App terminal is independent of the VS Code extension host and remains available. Upstream tracking: [microsoft/vscode-remote-release#11741](https://github.com/Microsoft/vscode-remote-release/issues/11741).
+
+```powershell
+npm ci
+npm --prefix vscode-extension ci
+npm run verify
 npm run dev
 ```
 
-构建 MSI：
+Release build:
 
 ```powershell
 npm run build
-```
-
-主要产物：
-
-- `src-tauri/target/release/kian-remote-lab.exe`
-- `src-tauri/target/release/bundle/msi/`
-
-### 5. 打包与安装 VS Code 扩展
-
-```powershell
 npm run extension:package
-code --install-extension .\vscode-extension\kian-remote-lab-0.1.1.vsix --force
 ```
 
-安装后执行一次 `Developer: Reload Window`。若想把扩展放到 Codex/Copilot 所在的右侧区域，将 Activity Bar 中的 K 图标拖到 Secondary Side Bar。
+Useful paths:
 
-## 安全边界
+- `src/`: HTML/CSS/JS and xterm.js frontend
+- `src-tauri/src/device.rs`: fixed node allowlist
+- `src-tauri/src/tailscale.rs`: local Tailscale CLI and JSON parsing
+- `src-tauri/src/terminal.rs`: controlled OpenSSH/ConPTY sessions
+- `src-tauri/src/vscode.rs`: VS Code Remote - SSH launcher
+- `vscode-extension/`: VS Code side panel extension
+- `scripts/gpu-node/`: repeatable Desktop 5060 WSL setup
 
-- 不保存 SSH 密码，默认使用 Windows OpenSSH 的 key/agent 认证
-- 前端不能传入任意可执行文件、用户名、IP 或 shell 参数
-- Rust 后端只允许固定的 Tailscale 和 OpenSSH 路径
-- SSH 目标 IP 必须来自 Tailscale JSON 并经过地址校验
-- VS Code 扩展同样使用固定程序路径和固定用户 `kian`
+## VS Code placement
 
-## 目录结构
-
-- `src/`：桌面 App HTML/CSS/JS 与 xterm.js 前端
-- `src-tauri/src/tailscale.rs`：Tailscale CLI 调用与 JSON 解析
-- `src-tauri/src/terminal.rs`：受控 OpenSSH/ConPTY 会话
-- `src-tauri/src/vscode.rs`：打开 VS Code Remote SSH
-- `vscode-extension/`：VS Code 侧边栏扩展、测试和图标
-- `assets/`：桌面图标源文件
-
-## 默认目标
-
-- Hostname：`dk2500`（匹配时不区分大小写）
-- SSH 用户：`kian`
-- 远端目录：`/home/kian`
-- 状态刷新：4 秒
-
-当前机器已验证 Tailscale 状态读取与无密码 SSH key 登录成功。密钥属于每台 Windows 电脑的本地配置，不会提交到仓库；新电脑仍需自行配置 SSH key。
+VS Code extensions cannot force themselves into the Secondary Side Bar. Drag the Kian Remote Lab Activity Bar icon to the right beside Codex/Copilot once; VS Code remembers the layout.

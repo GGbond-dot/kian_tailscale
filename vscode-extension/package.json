@@ -1,8 +1,8 @@
 {
   "name": "kian-remote-lab",
   "displayName": "Kian Remote Lab",
-  "description": "Manage and open the DK2500 Tailscale host from VS Code.",
-  "version": "0.1.1",
+  "description": "Manage DK2500 and the Desktop 5060 GPU node from VS Code.",
+  "version": "0.2.0",
   "publisher": "kian-lab",
   "private": true,
   "repository": {
@@ -14,7 +14,7 @@
     "vscode": "^1.90.0"
   },
   "categories": ["Other"],
-  "keywords": ["ssh", "remote", "tailscale", "dk2500"],
+  "keywords": ["ssh", "remote", "tailscale", "dk2500", "gpu", "wsl"],
   "main": "./extension.js",
   "extensionKind": ["ui"],
   "activationEvents": [
@@ -42,7 +42,7 @@
       "kianRemoteLab": [
         {
           "id": "kianRemoteLab.dashboard",
-          "name": "DK2500",
+          "name": "Lab Nodes",
           "type": "webview",
           "icon": "media/lab.svg",
           "contextualTitle": "Kian Remote Lab"
@@ -52,19 +52,19 @@
     "commands": [
       {
         "command": "kianRemoteLab.refresh",
-        "title": "Refresh DK2500 Status",
+        "title": "Refresh Lab Node Status",
         "category": "Kian Remote Lab",
         "icon": "$(refresh)"
       },
       {
         "command": "kianRemoteLab.openRemote",
-        "title": "Open DK2500 in New Window",
+        "title": "Open Lab Node in New Window",
         "category": "Kian Remote Lab",
         "icon": "$(remote)"
       },
       {
         "command": "kianRemoteLab.openTerminal",
-        "title": "New DK2500 SSH Terminal",
+        "title": "New Lab Node SSH Terminal",
         "category": "Kian Remote Lab",
         "icon": "$(terminal)"
       }
@@ -85,7 +85,7 @@
     }
   },
   "scripts": {
-    "lint": "node --check extension.js && node --check tailscale.js",
+    "lint": "node --check extension.js && node --check devices.js && node --check tailscale.js",
     "test": "node --test test/*.test.js",
     "package": "vsce package --no-dependencies"
   },

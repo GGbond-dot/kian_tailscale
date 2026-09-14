@@ -1,39 +1,58 @@
 "use strict";
 
 const { isIP } = require("node:net");
+const { DEVICES } = require("./devices");
 
-function emptyStatus(error = null) {
+function unavailableDevice(profile) {
   return {
-    tailscaleInstalled: true,
-    tailscaleConnected: false,
+    id: profile.id,
+    displayName: profile.displayName,
+    role: profile.role,
     deviceFound: false,
     online: false,
     ip: null,
     hostname: null,
     os: null,
+    sshPort: profile.sshPort,
+  };
+}
+
+function emptyOverview(error = null) {
+  return {
+    tailscaleInstalled: true,
+    tailscaleConnected: false,
+    devices: DEVICES.map(unavailableDevice),
     error,
   };
 }
 
-function parseStatusJson(json, targetHostname = "dk2500") {
-  const raw = JSON.parse(json);
-  const peers = Object.values(raw.Peer || {});
-  const peer = peers.find(
-    (item) => String(item.HostName || "").toLowerCase() === targetHostname.toLowerCase(),
-  );
-  const base = emptyStatus();
-  base.tailscaleConnected = String(raw.BackendState || "").toLowerCase() === "running";
-  if (!peer) return base;
-
-  const addresses = Array.isArray(peer.TailscaleIPs) ? peer.TailscaleIPs : [];
-  return {
-    ...base,
-    deviceFound: true,
-    online: peer.Online === true,
-    ip: addresses.find((address) => isIP(address) === 4 && address.startsWith("100.")) || null,
-    hostname: peer.HostName || null,
-    os: peer.OS || null,
-  };
+function isTailscaleIPv4(address) {
+  if (isIP(address) !== 4) return false;
+  const [first, second] = address.split(".").map(Number);
+  return first === 100 && second >= 64 && second <= 127;
 }
 
-module.exports = { emptyStatus, parseStatusJson };
+function parseStatusJson(json) {
+  const raw = JSON.parse(json);
+  const nodes = [raw.Self, ...Object.values(raw.Peer || {})].filter(Boolean);
+  const overview = emptyOverview();
+  overview.tailscaleConnected = String(raw.BackendState || "").toLowerCase() === "running";
+  overview.devices = DEVICES.map((profile) => {
+    const node = nodes.find(
+      (item) => String(item.HostName || "").toLowerCase() === profile.tailscaleHostname.toLowerCase(),
+    );
+    if (!node) return unavailableDevice(profile);
+    const addresses = Array.isArray(node.TailscaleIPs) ? node.TailscaleIPs : [];
+    return {
+      ...unavailableDevice(profile),
+      deviceFound: true,
+      online: node.Online === true,
+      ip: addresses.find(isTailscaleIPv4) || null,
+      hostname: node.HostName || null,
+      os: node.OS || null,
+    };
+  });
+  return overview;
+}
+
+module.exports = { emptyOverview, isTailscaleIPv4, parseStatusJson };

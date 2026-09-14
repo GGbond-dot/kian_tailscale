@@ -13,7 +13,7 @@
         <div class="brand">
           <img class="brand-icon" src="./assets/app-icon.png" alt="" />
           <div>
-            <p class="eyebrow">DK2500 CONTROL PLANE</p>
+            <p class="eyebrow">MULTI-NODE CONTROL PLANE</p>
             <h1>Kian Remote Lab</h1>
           </div>
         </div>
@@ -37,6 +37,17 @@
         </section>
 
         <aside class="status-panel" aria-label="Connection overview">
+          <div class="node-switcher" role="tablist" aria-label="Remote nodes">
+            <button class="node-option active" type="button" role="tab" data-device-id="dk2500" aria-selected="true">
+              <span id="node-dk2500-dot" class="dot" data-state="loading"></span>
+              <span><strong>DK2500</strong><small>LINUX SERVER</small></span>
+            </button>
+            <button class="node-option" type="button" role="tab" data-device-id="desktop-5060" aria-selected="false">
+              <span id="node-desktop-5060-dot" class="dot" data-state="loading"></span>
+              <span><strong>Desktop 5060</strong><small>GPU / WSL2</small></span>
+            </button>
+          </div>
+
           <div class="health-list">
             <article class="health-item">
               <span id="tailscale-dot" class="dot" data-state="loading"></span>
@@ -44,14 +55,14 @@
             </article>
             <article class="health-item">
               <span id="device-dot" class="dot" data-state="loading"></span>
-              <div><span class="label">DK2500</span><strong id="device-state">Checking...</strong></div>
+              <div><span id="selected-device-label" class="label">DK2500</span><strong id="device-state">Checking...</strong></div>
             </article>
           </div>
 
           <dl class="device-details">
             <div><dt>TAILSCALE IP</dt><dd id="ip-address">&mdash;</dd></div>
             <div><dt>HOSTNAME</dt><dd id="hostname">&mdash;</dd></div>
-            <div><dt>OPERATING SYSTEM</dt><dd id="os">&mdash;</dd></div>
+            <div><dt>ROLE / OS</dt><dd id="os">&mdash;</dd></div>
           </dl>
 
           <div class="action-stack">
@@ -59,7 +70,7 @@
               <span class="connect-symbol" aria-hidden="true">&gt;_</span>
               <span class="connect-label">Connect</span>
             </button>
-            <button id="open-vscode" class="vscode-action" type="button" title="Open /home/kian with VS Code Remote - SSH (Ctrl+Shift+O)" disabled>
+            <button id="open-vscode" class="vscode-action" type="button" title="Open selected node with VS Code Remote - SSH (Ctrl+Shift+O)" disabled>
               <span aria-hidden="true">&lt;/&gt;</span>
               <span>Open in VS Code</span>
             </button>

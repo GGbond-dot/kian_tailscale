@@ -1,6 +1,6 @@
 [package]
 name = "kian-remote-lab"
-version = "0.1.0"
+version = "0.2.0"
 description = "A focused Windows client for the DK2500 remote lab"
 authors = ["Kian"]
 edition = "2021"

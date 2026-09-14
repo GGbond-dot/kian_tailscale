@@ -1,27 +1,25 @@
 # Kian Remote Lab for VS Code
 
-面向 DK2500 的本地 VS Code 侧边栏扩展。
+A local VS Code side panel for the DK2500 Linux server and Desktop 5060 WSL2 GPU node.
 
-- 每 4 秒通过本机 Tailscale CLI 刷新设备状态
-- 自动读取 DK2500 当前 Tailscale IP、Hostname 和 OS
-- 使用 VS Code Remote SSH 打开 `/home/kian`
-- 从本地窗口创建 DK2500 SSH Terminal
-- 在已经连接 DK2500 的窗口中直接创建远端 Linux Terminal
-- 不读取或保存 SSH 密码
+- Reads the local Tailscale CLI every 4 seconds.
+- Resolves current node IPs from Tailscale JSON.
+- Opens either node through VS Code Remote - SSH.
+- Creates a Windows `ssh.exe` terminal from a local window.
+- Creates a native remote shell when the current VS Code window is already connected to that node.
+- Uses Remote - SSH's normalized authority format, including Desktop 5060 port 2222.
+- Does not read or save SSH passwords.
 
-安装后，Kian Remote Lab 会显示在 Activity Bar。将 K 图标拖到右侧 Secondary Side Bar 一次后，VS Code 会记住位置。
+After installation, drag the K icon to the right Secondary Side Bar once if you want it beside Codex and Copilot.
 
-## Build
+## Build and install
 
 ```powershell
 npm ci
 npm run lint
 npm test
 npm run package
+code --install-extension .\kian-remote-lab-0.2.0.vsix --force
 ```
 
-安装生成的 VSIX：
-
-```powershell
-code --install-extension .\kian-remote-lab-0.1.1.vsix --force
-```
+Install Microsoft's `ms-vscode-remote.remote-ssh` extension before using Open Code.

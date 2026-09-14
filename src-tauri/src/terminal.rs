@@ -11,10 +11,9 @@ use std::{
 };
 use tauri::{AppHandle, Emitter, Manager, State, WebviewWindow};
 
-use crate::tailscale;
+use crate::{device, tailscale};
 
 const SSH_PATH: &str = r"C:\Windows\System32\OpenSSH\ssh.exe";
-const SSH_USER: &str = "kian";
 const DEFAULT_COLS: u16 = 100;
 const DEFAULT_ROWS: u16 = 28;
 const MAX_INPUT_BYTES: usize = 64 * 1024;
@@ -109,6 +108,7 @@ pub(crate) fn connect_ssh(
     window: WebviewWindow,
     state: State<'_, TerminalState>,
     terminal_id: String,
+    device_id: String,
 ) -> Result<ConnectionInfo, String> {
     if terminal_id.is_empty() || terminal_id.len() > 128 {
         return Err("Invalid terminal identifier".to_string());
@@ -117,22 +117,25 @@ pub(crate) fn connect_ssh(
         return Err("Windows OpenSSH was not found".to_string());
     }
 
-    let status = tailscale::read_lab_status();
-    if !status.tailscale_installed {
+    let profile = device::profile(&device_id)?;
+    let overview = tailscale::read_lab_overview();
+    if !overview.tailscale_installed {
         return Err("Tailscale Not Found".to_string());
     }
-    if !status.tailscale_connected {
-        return Err(status
+    if !overview.tailscale_connected {
+        return Err(overview
             .error
             .unwrap_or_else(|| "Tailscale is disconnected".to_string()));
     }
+    let status = overview.device(profile.id)?;
     if !status.device_found || !status.online {
-        return Err("DK2500 is offline".to_string());
+        return Err(format!("{} is offline", profile.display_name));
     }
 
     let ip = status
         .ip
-        .ok_or_else(|| "DK2500 has no Tailscale IP".to_string())?;
+        .clone()
+        .ok_or_else(|| format!("{} has no Tailscale IP", profile.display_name))?;
     if ip.parse::<std::net::IpAddr>().is_err() {
         return Err("DK2500 returned an invalid Tailscale IP".to_string());
     }
@@ -147,13 +150,13 @@ pub(crate) fn connect_ssh(
         .map_err(|error| format!("Unable to create ConPTY: {error}"))?;
 
     let mut command = CommandBuilder::new(SSH_PATH);
-    command.args([
-        "-o",
-        "ServerAliveInterval=30",
-        "-o",
-        "ServerAliveCountMax=3",
-        &format!("{SSH_USER}@{ip}"),
-    ]);
+    command.args(["-o", "ServerAliveInterval=30"]);
+    command.args(["-o", "ServerAliveCountMax=3"]);
+    if profile.ssh_port != 22 {
+        command.args(["-p", &profile.ssh_port.to_string()]);
+    }
+    let target = format!("{}@{ip}", profile.ssh_user);
+    command.arg(&target);
     command.env("TERM", "xterm-256color");
 
     let mut child = pair
@@ -227,7 +230,11 @@ pub(crate) fn connect_ssh(
 
     Ok(ConnectionInfo {
         session_id,
-        target: format!("{SSH_USER}@{ip}"),
+        target: if profile.ssh_port == 22 {
+            target
+        } else {
+            format!("{target}:{}", profile.ssh_port)
+        },
     })
 }
 
@@ -318,12 +325,25 @@ mod tests {
     use super::*;
 
     #[test]
-    #[ignore = "requires local Tailscale and DK2500"]
+    #[ignore = "requires local Tailscale, DK2500, and Desktop 5060"]
     fn live_conpty_ssh_probe() {
+        let overview = tailscale::read_lab_overview();
+        for device_id in ["dk2500", "desktop-5060"] {
+            let profile = device::profile(device_id).expect("known profile");
+            println!("Probing {} through ConPTY", profile.display_name);
+            let ip = overview
+                .device(profile.id)
+                .expect("device status")
+                .ip
+                .clone()
+                .expect("device must have a Tailscale IP");
+            probe_profile(profile, &ip);
+        }
+    }
+
+    fn probe_profile(profile: &device::DeviceProfile, ip: &str) {
         use std::{sync::mpsc, time::Duration};
 
-        let status = tailscale::read_lab_status();
-        let ip = status.ip.expect("DK2500 must have a Tailscale IP");
         let pair = native_pty_system()
             .openpty(PtySize::default())
             .expect("ConPTY must open");
@@ -337,12 +357,12 @@ mod tests {
             .expect("ConPTY must resize");
 
         let mut command = CommandBuilder::new(SSH_PATH);
+        command.args(["-o", "BatchMode=yes", "-o", "ConnectTimeout=8"]);
+        if profile.ssh_port != 22 {
+            command.args(["-p", &profile.ssh_port.to_string()]);
+        }
         command.args([
-            "-o",
-            "BatchMode=yes",
-            "-o",
-            "ConnectTimeout=8",
-            &format!("{SSH_USER}@{ip}"),
+            &format!("{}@{ip}", profile.ssh_user),
             "printf KIAN_REMOTE_LAB_SSH_OK",
         ]);
         let mut child = pair
@@ -399,8 +419,9 @@ mod tests {
         drop(pair.master);
         let output = String::from_utf8_lossy(&output_bytes);
         assert!(
-            output.contains("KIAN_REMOTE_LAB_SSH_OK") || output.contains("Permission denied"),
-            "unexpected ssh result: {output}"
+            output.contains("KIAN_REMOTE_LAB_SSH_OK"),
+            "{} SSH failed: {output}",
+            profile.display_name
         );
     }
 }

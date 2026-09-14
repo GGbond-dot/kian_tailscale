@@ -1,3 +1,4 @@
+mod device;
 mod tailscale;
 mod terminal;
 mod vscode;
@@ -5,10 +6,10 @@ mod vscode;
 use tauri::Manager;
 
 #[tauri::command]
-async fn get_lab_status() -> tailscale::LabStatus {
-    tauri::async_runtime::spawn_blocking(tailscale::read_lab_status)
+async fn get_lab_status() -> tailscale::LabOverview {
+    tauri::async_runtime::spawn_blocking(tailscale::read_lab_overview)
         .await
-        .unwrap_or_else(|error| tailscale::LabStatus::unavailable(true, Some(error.to_string())))
+        .unwrap_or_else(|error| tailscale::LabOverview::unavailable(true, Some(error.to_string())))
 }
 
 #[tauri::command]

@@ -1,45 +1,76 @@
 "use strict";
 
-const test = require("node:test");
 const assert = require("node:assert/strict");
-const { parseStatusJson } = require("../tailscale");
+const test = require("node:test");
+const { DEVICES, deviceProfile, sshAuthority, sshDisplayTarget } = require("../devices");
+const { emptyOverview, isTailscaleIPv4, parseStatusJson } = require("../tailscale");
 
-test("finds DK2500 and prefers its Tailscale IPv4 address", () => {
-  const status = parseStatusJson(JSON.stringify({
+test("parses the Windows self node and DK2500 peer", () => {
+  const overview = parseStatusJson(JSON.stringify({
     BackendState: "Running",
-    Peer: {
-      abc: {
-        HostName: "DK2500",
-        OS: "linux",
-        Online: true,
-        TailscaleIPs: ["fd7a:115c:a1e0::1", "100.68.98.65"],
-      },
+    Self: {
+      HostName: "desktop-ltuqmcm",
+      Online: true,
+      OS: "windows",
+      TailscaleIPs: ["100.90.202.5", "fd7a:115c:a1e0::1"],
     },
-  }));
-  assert.equal(status.tailscaleConnected, true);
-  assert.equal(status.online, true);
-  assert.equal(status.ip, "100.68.98.65");
-  assert.equal(status.hostname, "DK2500");
-  assert.equal(status.os, "linux");
-});
-
-test("reports a missing target without throwing", () => {
-  const status = parseStatusJson('{"BackendState":"Running","Peer":{}}');
-  assert.equal(status.deviceFound, false);
-  assert.equal(status.ip, null);
-});
-
-test("rejects malformed addresses instead of constructing an SSH target", () => {
-  const status = parseStatusJson(JSON.stringify({
-    BackendState: "Running",
     Peer: {
-      abc: {
+      first: {
         HostName: "dk2500",
         Online: true,
-        TailscaleIPs: ["100.999.98.65", "not-an-ip"],
+        OS: "linux",
+        TailscaleIPs: ["100.68.98.65"],
       },
     },
   }));
-  assert.equal(status.deviceFound, true);
-  assert.equal(status.ip, null);
+
+  assert.equal(overview.tailscaleConnected, true);
+  assert.deepEqual(
+    overview.devices.map(({ id, online, ip, os, sshPort }) => ({ id, online, ip, os, sshPort })),
+    [
+      { id: "dk2500", online: true, ip: "100.68.98.65", os: "linux", sshPort: 22 },
+      { id: "desktop-5060", online: true, ip: "100.90.202.5", os: "windows", sshPort: 2222 },
+    ],
+  );
+});
+
+test("keeps a configured node visible when it is absent", () => {
+  const overview = parseStatusJson('{"BackendState":"Stopped","Peer":{}}');
+
+  assert.equal(overview.tailscaleConnected, false);
+  assert.equal(overview.devices.length, DEVICES.length);
+  assert.equal(overview.devices[0].deviceFound, false);
+  assert.equal(overview.devices[1].ip, null);
+});
+
+test("only accepts Tailscale CGNAT IPv4 addresses", () => {
+  assert.equal(isTailscaleIPv4("100.64.0.1"), true);
+  assert.equal(isTailscaleIPv4("100.127.255.254"), true);
+  assert.equal(isTailscaleIPv4("100.128.0.1"), false);
+  assert.equal(isTailscaleIPv4("192.168.1.2"), false);
+  assert.equal(isTailscaleIPv4("not-an-address"), false);
+});
+
+test("device IDs are allowlisted and SSH authorities include nonstandard ports", () => {
+  const server = deviceProfile("dk2500");
+  const gpu = deviceProfile("desktop-5060");
+  assert.deepEqual(
+    JSON.parse(Buffer.from(sshAuthority(server, "100.68.98.65"), "hex").toString("utf8")),
+    { hostName: "100.68.98.65", user: "kian" },
+  );
+  assert.deepEqual(
+    JSON.parse(Buffer.from(sshAuthority(gpu, "100.90.202.5"), "hex").toString("utf8")),
+    { hostName: "100.90.202.5", user: "kian", port: 2222 },
+  );
+  assert.equal(
+    sshDisplayTarget(gpu, "100.90.202.5"),
+    "kian@100.90.202.5:2222",
+  );
+  assert.throws(() => deviceProfile("untrusted"), /Unknown device/);
+});
+
+test("empty overview carries an operational error", () => {
+  const overview = emptyOverview("Tailscale Not Found");
+  assert.equal(overview.tailscaleInstalled, true);
+  assert.equal(overview.error, "Tailscale Not Found");
 });

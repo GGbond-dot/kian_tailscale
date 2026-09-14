@@ -94,6 +94,13 @@ dd { margin: 0; overflow: hidden; color: #dce5f0; font: 500 13px/1.2 ui-monospac
 
 .workspace-layout { display: grid; flex: 1 1 auto; grid-template-columns: minmax(0, 1fr) clamp(210px, 21vw, 250px); gap: 12px; min-height: 0; }
 .status-panel { display: flex; align-self: start; flex-direction: column; min-width: 0; border: 1px solid #202b3d; border-radius: 13px; background: linear-gradient(145deg, rgba(19, 26, 38, 0.96), rgba(13, 18, 27, 0.96)); box-shadow: 0 18px 55px rgba(0, 0, 0, 0.2); overflow: hidden; }
+.node-switcher { display: grid; grid-template-columns: 1fr; padding: 7px; border-bottom: 1px solid #202b3d; background: rgba(7, 11, 17, 0.55); }
+.node-option { display: flex; align-items: center; gap: 11px; min-width: 0; padding: 10px; border-color: transparent; color: #8c9ab0; background: transparent; text-align: left; }
+.node-option:hover { border-color: #28364a; background: rgba(35, 46, 63, 0.55); }
+.node-option.active { border-color: #315c4c; color: #edf7f2; background: linear-gradient(135deg, rgba(35, 91, 70, 0.36), rgba(25, 47, 44, 0.3)); }
+.node-option > span:last-child { display: grid; min-width: 0; gap: 3px; }
+.node-option strong { font-size: 12px; }
+.node-option small { overflow: hidden; color: #637187; font: 650 8px/1 ui-monospace, monospace; letter-spacing: 0.11em; text-overflow: ellipsis; white-space: nowrap; }
 .health-list { display: grid; border-bottom: 1px solid #202b3d; }
 .status-panel .health-item { padding: 15px 16px; }
 .status-panel .health-item + .health-item { border-top: 1px solid #202b3d; border-left: 0; }
@@ -127,8 +134,9 @@ dd { margin: 0; overflow: hidden; color: #dce5f0; font: 500 13px/1.2 ui-monospac
 
 @media (max-width: 900px) {
   .workspace-layout { grid-template-columns: 1fr; grid-template-rows: minmax(360px, 1fr) auto; }
-  .status-panel { display: grid; grid-template-columns: auto minmax(280px, 1fr) auto; align-items: stretch; }
-  .health-list { grid-template-columns: 1fr 1fr; border-right: 1px solid #202b3d; border-bottom: 0; }
+  .status-panel { display: grid; grid-template-columns: minmax(240px, 0.8fr) minmax(280px, 1fr) auto; align-items: stretch; }
+  .node-switcher { grid-template-columns: 1fr 1fr; border-right: 1px solid #202b3d; border-bottom: 0; }
+  .health-list { display: none; }
   .status-panel .health-item { padding: 12px 14px; }
   .status-panel .health-item + .health-item { border-top: 0; border-left: 1px solid #202b3d; }
   .status-panel .device-details { grid-template-columns: 1.35fr 1fr 1fr; align-items: center; padding: 5px 14px; }
@@ -147,6 +155,8 @@ dd { margin: 0; overflow: hidden; color: #dce5f0; font: 500 13px/1.2 ui-monospac
   .secondary span { margin: 0; font-size: 18px; }
   .workspace-layout { grid-template-rows: minmax(420px, 1fr) auto; }
   .status-panel { display: flex; }
+  .node-switcher { border-right: 0; border-bottom: 1px solid #202b3d; }
+  .health-list { display: grid; grid-template-columns: 1fr 1fr; border-right: 0; border-bottom: 1px solid #202b3d; }
   .health-list { border-right: 0; border-bottom: 1px solid #202b3d; }
   .status-panel .device-details { grid-template-columns: 1fr 1fr; }
   .status-panel .device-details div:first-child { grid-column: 1 / -1; }

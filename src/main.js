@@ -5,9 +5,14 @@ import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
 
 const REFRESH_INTERVAL_MS = 4_000;
+const DEVICE_FALLBACKS = {
+  dk2500: { displayName: "DK2500", role: "Linux Server", sshPort: 22 },
+  "desktop-5060": { displayName: "Desktop 5060", role: "GPU / WSL2", sshPort: 2222 },
+};
+
 let refreshing = false;
 let openingVsCode = false;
-let currentStatus = null;
+let currentOverview = null;
 let activeTerminalId = null;
 let terminalNumber = 0;
 const workspaces = new Map();
@@ -17,6 +22,7 @@ const elements = {
   tailscaleState: document.querySelector("#tailscale-state"),
   deviceDot: document.querySelector("#device-dot"),
   deviceState: document.querySelector("#device-state"),
+  selectedDeviceLabel: document.querySelector("#selected-device-label"),
   ip: document.querySelector("#ip-address"),
   hostname: document.querySelector("#hostname"),
   os: document.querySelector("#os"),
@@ -29,6 +35,7 @@ const elements = {
   terminalTabs: document.querySelector("#terminal-tabs"),
   terminalStack: document.querySelector("#terminal-stack"),
   terminalTarget: document.querySelector("#terminal-target"),
+  nodeOptions: Array.from(document.querySelectorAll(".node-option")),
 };
 
 function terminalOptions() {
@@ -47,35 +54,67 @@ function terminalOptions() {
   };
 }
 
-function setIndicator(dot, state) { dot.dataset.state = state; }
-function canConnect() {
-  return Boolean(currentStatus?.tailscaleConnected && currentStatus?.online && currentStatus?.ip);
+function setIndicator(dot, state) {
+  if (dot) dot.dataset.state = state;
 }
-function activeWorkspace() { return workspaces.get(activeTerminalId) ?? null; }
+
+function activeWorkspace() {
+  return workspaces.get(activeTerminalId) ?? null;
+}
+
+function deviceStatus(deviceId) {
+  return currentOverview?.devices?.find((device) => device.id === deviceId) ?? null;
+}
+
+function deviceInfo(deviceId) {
+  return deviceStatus(deviceId) ?? DEVICE_FALLBACKS[deviceId];
+}
+
+function canConnect(workspace = activeWorkspace()) {
+  const status = workspace ? deviceStatus(workspace.deviceId) : null;
+  return Boolean(currentOverview?.tailscaleConnected && status?.online && status?.ip);
+}
+
+function renderNodeSelection(workspace) {
+  for (const option of elements.nodeOptions) {
+    const deviceId = option.dataset.deviceId;
+    const status = deviceStatus(deviceId);
+    const active = workspace?.deviceId === deviceId;
+    option.classList.toggle("active", active);
+    option.setAttribute("aria-selected", String(active));
+    setIndicator(option.querySelector(".dot"), status?.online ? "online" : "offline");
+  }
+}
 
 function updateActiveControls() {
   const workspace = activeWorkspace();
   const connected = workspace?.sessionId != null;
   elements.connectLabel.textContent = connected ? "Disconnect" : "Connect";
   elements.connect.classList.toggle("danger", connected);
-  elements.connect.disabled = !workspace || workspace.connecting || (!connected && !canConnect());
-  elements.openVsCode.disabled = openingVsCode || !canConnect();
+  elements.connect.disabled = !workspace || workspace.connecting || (!connected && !canConnect(workspace));
+  elements.openVsCode.disabled = openingVsCode || !workspace || !canConnect(workspace);
   elements.terminalTarget.textContent = workspace?.target ?? "DISCONNECTED";
+  renderNodeSelection(workspace);
 }
 
-function render(status) {
-  currentStatus = status;
-  if (!status.tailscaleInstalled) {
+function render(overview) {
+  currentOverview = overview;
+  if (!overview.tailscaleInstalled) {
     elements.tailscaleState.textContent = "Not Found";
     setIndicator(elements.tailscaleDot, "error");
-  } else if (status.tailscaleConnected) {
+  } else if (overview.tailscaleConnected) {
     elements.tailscaleState.textContent = "Connected";
     setIndicator(elements.tailscaleDot, "online");
   } else {
     elements.tailscaleState.textContent = "Disconnected";
     setIndicator(elements.tailscaleDot, "offline");
   }
-  if (!status.deviceFound) {
+
+  const workspace = activeWorkspace();
+  const status = workspace ? deviceStatus(workspace.deviceId) : null;
+  const fallback = workspace ? DEVICE_FALLBACKS[workspace.deviceId] : null;
+  elements.selectedDeviceLabel.textContent = status?.displayName ?? fallback?.displayName ?? "DEVICE";
+  if (!status?.deviceFound) {
     elements.deviceState.textContent = "Not Found";
     setIndicator(elements.deviceDot, "offline");
   } else if (status.online) {
@@ -85,11 +124,13 @@ function render(status) {
     elements.deviceState.textContent = "Offline";
     setIndicator(elements.deviceDot, "offline");
   }
-  elements.ip.textContent = status.ip ?? "--";
-  elements.hostname.textContent = status.hostname ?? "--";
-  elements.os.textContent = status.os ?? "--";
-  elements.message.textContent = status.error
-    ? status.error
+  elements.ip.textContent = status?.ip
+    ? `${status.ip}${status.sshPort === 22 ? "" : `:${status.sshPort}`}`
+    : "--";
+  elements.hostname.textContent = status?.hostname ?? "--";
+  elements.os.textContent = [status?.role, status?.os].filter(Boolean).join(" / ") || "--";
+  elements.message.textContent = overview.error
+    ? overview.error
     : `Status updated at ${new Date().toLocaleTimeString()}`;
   updateActiveControls();
 }
@@ -98,9 +139,14 @@ async function refreshStatus() {
   if (refreshing) return;
   refreshing = true;
   elements.refresh.disabled = true;
-  try { render(await invoke("get_lab_status")); }
-  catch (error) { elements.message.textContent = `Unable to read status: ${error}`; }
-  finally { refreshing = false; elements.refresh.disabled = false; }
+  try {
+    render(await invoke("get_lab_status"));
+  } catch (error) {
+    elements.message.textContent = `Unable to read status: ${error}`;
+  } finally {
+    refreshing = false;
+    elements.refresh.disabled = false;
+  }
 }
 
 function resizeWorkspace(workspace) {
@@ -129,7 +175,8 @@ function activateTerminal(clientId) {
     workspace.tab.setAttribute("aria-selected", String(active));
   }
   const workspace = workspaces.get(clientId);
-  updateActiveControls();
+  if (currentOverview) render(currentOverview);
+  else updateActiveControls();
   resizeWorkspace(workspace);
   if (workspace.opened) workspace.terminal.focus();
 }
@@ -162,11 +209,11 @@ async function closeTerminal(clientId) {
   if (activeTerminalId === clientId) {
     const replacement = Array.from(workspaces.keys()).at(-1);
     if (replacement) activateTerminal(replacement);
-    else createTerminal();
+    else createTerminal("dk2500");
   }
 }
 
-function createTerminal() {
+function createTerminal(deviceId = "dk2500") {
   terminalNumber += 1;
   const clientId = crypto.randomUUID();
   for (const workspace of workspaces.values()) {
@@ -174,9 +221,8 @@ function createTerminal() {
     workspace.tab.classList.remove("active");
   }
   activeTerminalId = clientId;
+
   const container = document.createElement("div");
-  // xterm must be opened while its host is visible so it can measure glyphs
-  // and create a correctly sized canvas.
   container.className = "terminal-pane active";
   container.setAttribute("role", "tabpanel");
   elements.terminalStack.append(container);
@@ -189,7 +235,7 @@ function createTerminal() {
   dot.className = "terminal-tab-dot";
   const label = document.createElement("span");
   label.className = "terminal-tab-label";
-  label.textContent = `Terminal ${terminalNumber}`;
+  label.textContent = `${deviceInfo(deviceId)?.displayName ?? deviceId} ${terminalNumber}`;
   const close = document.createElement("span");
   close.className = "terminal-tab-close";
   close.textContent = "×";
@@ -201,7 +247,7 @@ function createTerminal() {
   const fitAddon = new FitAddon();
   terminal.loadAddon(fitAddon);
   const workspace = {
-    clientId, sessionId: null, target: "DISCONNECTED", connecting: false,
+    clientId, deviceId, sessionId: null, target: "DISCONNECTED", connecting: false,
     opened: false, resizePending: false, writeQueue: Promise.resolve(),
     terminal, fitAddon, container, tab,
   };
@@ -225,7 +271,7 @@ function createTerminal() {
       terminal.open(container);
       workspace.opened = true;
       fitAddon.fit();
-      terminal.writeln("\x1b[90mKian Remote Lab ready. Select Connect to start SSH.\x1b[0m");
+      terminal.writeln(`\x1b[90m${deviceInfo(deviceId)?.displayName ?? deviceId} ready. Select Connect to start SSH.\x1b[0m`);
       terminal.refresh(0, terminal.rows - 1);
       terminal.focus();
       resolve();
@@ -236,14 +282,17 @@ function createTerminal() {
 }
 
 async function connectWorkspace(workspace) {
-  if (workspace.connecting || workspace.sessionId != null || !canConnect()) return;
+  if (workspace.connecting || workspace.sessionId != null || !canConnect(workspace)) return;
   workspace.connecting = true;
   if (workspace.clientId === activeTerminalId) updateActiveControls();
   await workspace.ready;
   workspace.terminal.reset();
   workspace.terminal.writeln("\x1b[90mStarting Windows OpenSSH through ConPTY...\x1b[0m");
   try {
-    const connection = await invoke("connect_ssh", { terminalId: workspace.clientId });
+    const connection = await invoke("connect_ssh", {
+      terminalId: workspace.clientId,
+      deviceId: workspace.deviceId,
+    });
     workspace.sessionId = connection.sessionId;
     workspace.target = connection.target.toUpperCase();
     workspace.tab.classList.add("connected");
@@ -257,9 +306,16 @@ async function connectWorkspace(workspace) {
   }
 }
 
+function selectDevice(deviceId) {
+  const existing = Array.from(workspaces.values()).findLast((workspace) => workspace.deviceId === deviceId);
+  if (existing) activateTerminal(existing.clientId);
+  else createTerminal(deviceId);
+}
+
 function createAndMaybeConnect() {
-  const workspace = createTerminal();
-  if (canConnect()) connectWorkspace(workspace);
+  const deviceId = activeWorkspace()?.deviceId ?? "dk2500";
+  const workspace = createTerminal(deviceId);
+  if (canConnect(workspace)) connectWorkspace(workspace);
 }
 
 async function toggleActiveConnection() {
@@ -270,12 +326,14 @@ async function toggleActiveConnection() {
 }
 
 async function openInVsCode() {
-  if (openingVsCode || !canConnect()) return;
+  const workspace = activeWorkspace();
+  if (openingVsCode || !workspace || !canConnect(workspace)) return;
   openingVsCode = true;
   updateActiveControls();
-  elements.message.textContent = "Opening DK2500 in VS Code...";
+  const info = deviceInfo(workspace.deviceId);
+  elements.message.textContent = `Opening ${info.displayName} in VS Code...`;
   try {
-    const launch = await invoke("open_in_vscode");
+    const launch = await invoke("open_in_vscode", { deviceId: workspace.deviceId });
     elements.message.textContent = `VS Code opening ${launch.target}:${launch.folder}`;
   } catch (error) {
     elements.message.textContent = `Unable to open VS Code: ${error}`;
@@ -313,6 +371,10 @@ elements.connect.addEventListener("click", toggleActiveConnection);
 elements.newTerminal.addEventListener("click", createAndMaybeConnect);
 elements.openVsCode.addEventListener("click", openInVsCode);
 elements.refresh.addEventListener("click", refreshStatus);
+for (const option of elements.nodeOptions) {
+  option.addEventListener("click", () => selectDevice(option.dataset.deviceId));
+}
+
 window.addEventListener("keydown", async (event) => {
   if (event.isComposing) return;
   const key = event.key.toLowerCase();
@@ -362,6 +424,7 @@ window.addEventListener("keydown", async (event) => {
     });
   }
 }, true);
+
 window.addEventListener("beforeunload", () => {
   for (const workspace of workspaces.values()) {
     if (workspace.sessionId != null) {
@@ -370,6 +433,6 @@ window.addEventListener("beforeunload", () => {
   }
 });
 
-createTerminal();
+createTerminal("dk2500");
 refreshStatus();
 setInterval(refreshStatus, REFRESH_INTERVAL_MS);
