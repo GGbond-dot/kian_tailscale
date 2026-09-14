@@ -8,6 +8,7 @@ const REFRESH_INTERVAL_MS = 4_000;
 const DEVICE_FALLBACKS = {
   dk2500: { displayName: "DK2500", role: "Linux Server", sshPort: 22 },
   "desktop-5060": { displayName: "Desktop 5060", role: "GPU / WSL2", sshPort: 2222 },
+  "desktop-5060-windows": { displayName: "Desktop 5060 Windows", role: "Windows / PowerShell", sshPort: 2224 },
 };
 
 let refreshing = false;

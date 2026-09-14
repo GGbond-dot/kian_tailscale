@@ -9,7 +9,7 @@ pub(crate) struct DeviceProfile {
     pub(crate) remote_folder: &'static str,
 }
 
-pub(crate) const DEVICES: [DeviceProfile; 2] = [
+pub(crate) const DEVICES: [DeviceProfile; 3] = [
     DeviceProfile {
         id: "dk2500",
         display_name: "DK2500",
@@ -27,6 +27,15 @@ pub(crate) const DEVICES: [DeviceProfile; 2] = [
         ssh_user: "kian",
         ssh_port: 2222,
         remote_folder: "/home/kian",
+    },
+    DeviceProfile {
+        id: "desktop-5060-windows",
+        display_name: "Desktop 5060 Windows",
+        role: "Windows / PowerShell",
+        tailscale_hostname: "desktop-ltuqmcm",
+        ssh_user: "kian",
+        ssh_port: 2224,
+        remote_folder: r"C:\Users\kian",
     },
 ];
 

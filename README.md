@@ -7,7 +7,8 @@ Version 0.2.0 manages two fixed, allowlisted nodes:
 | Node | Tailscale hostname | SSH | Purpose |
 | --- | --- | --- | --- |
 | DK2500 | `dk2500` | `kian@<current-ip>:22` | Linux server |
-| Desktop 5060 | `desktop-ltuqmcm` | `kian@<current-ip>:2222` | RTX 5060 / Ubuntu 22.04 on WSL2 |
+| Desktop 5060 WSL | `desktop-ltuqmcm` | `kian@<current-ip>:2222` | RTX 5060 / Ubuntu 22.04 on WSL2 |
+| Desktop 5060 Windows | `desktop-ltuqmcm` | `kian@<current-ip>:2224` | Windows host / PowerShell |
 
 The current Tailscale IP is always read from local `tailscale.exe status --json` output. No node IP is hardcoded into an SSH command.
 
@@ -95,6 +96,8 @@ The idempotent setup:
 - exposes only Tailscale TCP 2222 to that bridge.
 
 The bridge listens only on Windows `127.0.0.1:2223`, discovers the current Ubuntu WSL NAT address, and forwards only to SSH port 22. Tailscale Serve is the only tailnet-facing entry point. The task checks the bridge once per minute while the Windows user is logged in, and a cold SSH request can start WSL automatically.
+
+To expose the Windows host itself (PowerShell), run `scripts/gpu-node/setup-windows-ssh.ps1` once from an elevated PowerShell on Desktop 5060. It installs/configures Windows OpenSSH on Tailscale TCP 2224 with public-key-only authentication. The app then shows a separate **Desktop 5060 Windows** target; use WSL for Linux/GPU tools and Windows for host administration, filesystem, services, and PowerShell commands.
 
 Health checks:
 

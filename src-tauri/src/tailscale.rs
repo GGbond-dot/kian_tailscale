@@ -200,7 +200,7 @@ mod tests {
 
         let result = parse_tailscale_status(json).expect("valid Tailscale JSON");
         assert!(result.tailscale_connected);
-        assert_eq!(result.devices.len(), 2);
+        assert_eq!(result.devices.len(), 3);
 
         let server = result.device("dk2500").expect("server status");
         assert!(server.online);
@@ -211,6 +211,13 @@ mod tests {
         assert!(gpu.online);
         assert_eq!(gpu.ip.as_deref(), Some("100.90.202.5"));
         assert_eq!(gpu.ssh_port, 2222);
+
+        let windows = result
+            .device("desktop-5060-windows")
+            .expect("windows status");
+        assert!(windows.online);
+        assert_eq!(windows.ip.as_deref(), Some("100.90.202.5"));
+        assert_eq!(windows.ssh_port, 2224);
     }
 
     #[test]

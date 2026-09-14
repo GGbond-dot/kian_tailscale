@@ -19,6 +19,15 @@ const DEVICES = Object.freeze([
     sshPort: 2222,
     remoteFolder: "/home/kian",
   }),
+  Object.freeze({
+    id: "desktop-5060-windows",
+    displayName: "Desktop 5060 Windows",
+    role: "Windows / PowerShell",
+    tailscaleHostname: "desktop-ltuqmcm",
+    sshUser: "kian",
+    sshPort: 2224,
+    remoteFolder: "C:/Users/kian",
+  }),
 ]);
 
 function deviceProfile(deviceId) {

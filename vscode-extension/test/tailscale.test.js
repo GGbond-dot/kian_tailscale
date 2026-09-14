@@ -30,6 +30,7 @@ test("parses the Windows self node and DK2500 peer", () => {
     [
       { id: "dk2500", online: true, ip: "100.68.98.65", os: "linux", sshPort: 22 },
       { id: "desktop-5060", online: true, ip: "100.90.202.5", os: "windows", sshPort: 2222 },
+      { id: "desktop-5060-windows", online: true, ip: "100.90.202.5", os: "windows", sshPort: 2224 },
     ],
   );
 });
