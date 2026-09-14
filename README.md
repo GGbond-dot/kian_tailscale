@@ -82,8 +82,12 @@ The training environment is native Linux tooling inside Ubuntu 22.04 on WSL2. Wi
 On Desktop 5060, run from a normal PowerShell window:
 
 ```powershell
-.\scripts\gpu-node\setup-wsl.ps1
+.\scripts\gpu-node\setup-wsl.ps1 -KeepHostAwake
 ```
+
+`-KeepHostAwake` disables automatic sleep and hibernation while the PC is on
+AC power. It does not change the display timeout, so the monitor can still turn
+off. Omit the switch if the PC should retain its normal automatic sleep policy.
 
 The idempotent setup:
 
@@ -92,10 +96,17 @@ The idempotent setup:
 - exposes WSL's NVIDIA `nvidia-smi`;
 - imports the current Windows user's public Ed25519 key when present;
 - installs a fixed local bridge at `%LOCALAPPDATA%\KianRemoteLab\gpu-node`;
-- creates the current-user scheduled task `Kian Remote Lab GPU Bridge`;
+- creates the silent current-user scheduled task `Kian Remote Lab GPU Bridge`;
 - exposes only Tailscale TCP 2222 to that bridge.
 
-The bridge listens only on Windows `127.0.0.1:2223`, discovers the current Ubuntu WSL NAT address, and forwards only to SSH port 22. Tailscale Serve is the only tailnet-facing entry point. The task checks the bridge once per minute while the Windows user is logged in, and a cold SSH request can start WSL automatically.
+The bridge listens only on Windows `127.0.0.1:2223`, discovers the current Ubuntu WSL NAT address, and forwards only to SSH port 22. Tailscale Serve is the only tailnet-facing entry point. The task checks the bridge once per minute while the Windows user is logged in, and a cold SSH request can start WSL automatically. The desktop App does not need to be open: the hidden bridge task and the Tailscale Windows service provide the background path.
+
+A Windows PC that is actually asleep cannot accept a Tailscale connection;
+background residency cannot override system sleep. With `-KeepHostAwake`, leave
+the PC signed in and connected to AC for unattended access. A manual sleep,
+restart, Wi-Fi outage, or WSL restart can still interrupt an existing TCP/SSH
+session. SSH keepalives tolerate interruptions of up to about ten minutes, but
+long-running work should be started inside `tmux` so it survives a reconnect.
 
 To expose the Windows host itself (PowerShell), run `scripts/gpu-node/setup-windows-ssh.ps1` once from an elevated PowerShell on Desktop 5060. It installs/configures Windows OpenSSH on Tailscale TCP 2224, sets PowerShell as the default shell, and enables password login for first-time key bootstrap. The app itself never stores the password; after confirming key login, set `PasswordAuthentication no` in `%ProgramData%\ssh\sshd_config` and restart `sshd`. The app then shows a separate **Desktop 5060 Windows** target; use WSL for Linux/GPU tools and Windows for host administration, filesystem, services, and PowerShell commands.
 
@@ -105,6 +116,14 @@ Health checks:
 schtasks /Query /TN "Kian Remote Lab GPU Bridge" /V /FO LIST
 & 'C:\Program Files\Tailscale\tailscale.exe' serve status
 ssh -p 2222 kian@desktop-ltuqmcm
+```
+
+If an existing terminal disconnects, check whether Windows or WSL restarted:
+
+```powershell
+powercfg /GetActiveScheme
+Get-WinEvent -FilterHashtable @{LogName='System'; Id=1,42,107} -MaxEvents 20
+wsl -d Ubuntu-22.04 -- systemctl status ssh --no-pager
 ```
 
 ## Development

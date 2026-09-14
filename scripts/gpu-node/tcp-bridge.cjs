@@ -8,6 +8,7 @@ const LISTEN_PORT = 2223;
 const TARGET_PORT = 22;
 const CONNECT_RETRY_MS = 250;
 const MAX_CONNECT_ATTEMPTS = 40;
+const KEEP_ALIVE_INITIAL_DELAY_MS = 15_000;
 
 function wslAddress() {
   const output = execFileSync("wsl.exe", ["-d", "Ubuntu-22.04", "--", "hostname", "-I"], {
@@ -36,6 +37,10 @@ function connectUpstream(client, attempt = 1) {
   const upstream = net.createConnection({ host: targetHost, port: TARGET_PORT });
 
   upstream.once("connect", () => {
+    client.setKeepAlive(true, KEEP_ALIVE_INITIAL_DELAY_MS);
+    client.setNoDelay(true);
+    upstream.setKeepAlive(true, KEEP_ALIVE_INITIAL_DELAY_MS);
+    upstream.setNoDelay(true);
     client.pipe(upstream);
     upstream.pipe(client);
   });
@@ -51,7 +56,10 @@ function connectUpstream(client, attempt = 1) {
   client.once("close", () => upstream.destroy());
 }
 
-const server = net.createServer({ keepAlive: true }, (client) => connectUpstream(client));
+const server = net.createServer(
+  { keepAlive: true, keepAliveInitialDelay: KEEP_ALIVE_INITIAL_DELAY_MS, noDelay: true },
+  (client) => connectUpstream(client),
+);
 server.on("error", (error) => {
   process.stderr.write(`Kian Remote Lab TCP bridge failed: ${error.message}\n`);
   process.exitCode = 1;

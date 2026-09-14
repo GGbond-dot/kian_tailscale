@@ -151,7 +151,10 @@ pub(crate) fn connect_ssh(
 
     let mut command = CommandBuilder::new(SSH_PATH);
     command.args(["-o", "ServerAliveInterval=30"]);
-    command.args(["-o", "ServerAliveCountMax=3"]);
+    // Tolerate a short Wi-Fi/Tailscale interruption without keeping a dead
+    // terminal forever. This is ten minutes rather than OpenSSH's usual
+    // three missed replies (90 seconds with the interval above).
+    command.args(["-o", "ServerAliveCountMax=20"]);
     if profile.ssh_port != 22 {
         command.args(["-p", &profile.ssh_port.to_string()]);
     }

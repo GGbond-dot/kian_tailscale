@@ -1,3 +1,7 @@
+param(
+    [switch] $KeepHostAwake
+)
+
 $ErrorActionPreference = "Stop"
 
 $Distro = "Ubuntu-22.04"
@@ -59,6 +63,7 @@ Invoke-Wsl @("-d", $Distro, "-u", "root", "--", "systemctl", "restart", "ssh")
 New-Item -ItemType Directory -Path $BridgeInstallDirectory -Force | Out-Null
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot "tcp-bridge.cjs") -Destination $BridgeInstallDirectory -Force
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot "start-bridge.ps1") -Destination $BridgeInstallDirectory -Force
+Copy-Item -LiteralPath (Join-Path $PSScriptRoot "start-bridge-hidden.vbs") -Destination $BridgeInstallDirectory -Force
 
 $BridgeLauncher = Join-Path $BridgeInstallDirectory "start-bridge.ps1"
 & powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $BridgeLauncher
@@ -66,10 +71,26 @@ if ($LASTEXITCODE -ne 0) {
     throw "Unable to start the GPU node bridge"
 }
 
-$TaskCommand = "powershell.exe -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$BridgeLauncher`""
+$SilentLauncher = Join-Path $BridgeInstallDirectory "start-bridge-hidden.vbs"
+$TaskCommand = "wscript.exe //B //NoLogo `"$SilentLauncher`""
 & schtasks.exe /Create /F /TN "Kian Remote Lab GPU Bridge" /SC MINUTE /MO 1 /TR $TaskCommand
 if ($LASTEXITCODE -ne 0) {
     throw "Unable to register the GPU node bridge startup task"
+}
+
+if ($KeepHostAwake) {
+    # A sleeping Windows host cannot receive Tailscale traffic or keep WSL
+    # sessions alive. Disable automatic sleep/hibernate only while on AC;
+    # display timeout remains unchanged and manual sleep still works.
+    & powercfg.exe /Change standby-timeout-ac 0
+    if ($LASTEXITCODE -ne 0) {
+        throw "Unable to disable automatic sleep while the host is on AC power"
+    }
+    & powercfg.exe /Change hibernate-timeout-ac 0
+    if ($LASTEXITCODE -ne 0) {
+        throw "Unable to disable automatic hibernation while the host is on AC power"
+    }
+    Write-Host "Automatic sleep and hibernation are disabled while this host is on AC power."
 }
 
 Invoke-Wsl @("-d", $Distro, "--", "nvidia-smi", "--query-gpu=name,driver_version,compute_cap,memory.total", "--format=csv,noheader")
