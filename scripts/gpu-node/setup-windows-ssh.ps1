@@ -22,9 +22,11 @@ if (Test-Path $PublicKey) {
 }
 $lines = if (Test-Path $SshdConfig) { Get-Content $SshdConfig } else { @() }
 $lines = @($lines | Where-Object { $_ -notmatch '^\s*(Port|PasswordAuthentication|PubkeyAuthentication|AllowUsers|Subsystem|Match)\b' })
-$lines += @("Port $Port", "PubkeyAuthentication yes", "PasswordAuthentication no", "AllowUsers $env:USERNAME", "Subsystem sftp sftp-server.exe")
+$lines += @("Port $Port", "PubkeyAuthentication yes", "PasswordAuthentication yes", "AllowUsers $env:USERNAME", "Subsystem sftp sftp-server.exe")
 Set-Content -Path $SshdConfig -Value $lines -Encoding ascii
 & "$env:WINDIR\System32\OpenSSH\sshd.exe" -t -f $SshdConfig
+New-Item -Path "HKLM:\SOFTWARE\OpenSSH" -Force | Out-Null
+New-ItemProperty -Path "HKLM:\SOFTWARE\OpenSSH" -Name DefaultShell -Value "$env:WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -PropertyType String -Force | Out-Null
 Set-Service -Name sshd -StartupType Automatic
 Start-Service sshd -ErrorAction SilentlyContinue
 New-NetFirewallRule -Name "OpenSSH-Server-In-TCP-2224-KianRemoteLab" -DisplayName "Kian Remote Lab Windows SSH" -Direction Inbound -Action Allow -Protocol TCP -LocalPort $Port -Profile Any -ErrorAction SilentlyContinue | Out-Null

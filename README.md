@@ -97,7 +97,7 @@ The idempotent setup:
 
 The bridge listens only on Windows `127.0.0.1:2223`, discovers the current Ubuntu WSL NAT address, and forwards only to SSH port 22. Tailscale Serve is the only tailnet-facing entry point. The task checks the bridge once per minute while the Windows user is logged in, and a cold SSH request can start WSL automatically.
 
-To expose the Windows host itself (PowerShell), run `scripts/gpu-node/setup-windows-ssh.ps1` once from an elevated PowerShell on Desktop 5060. It installs/configures Windows OpenSSH on Tailscale TCP 2224 with public-key-only authentication. The app then shows a separate **Desktop 5060 Windows** target; use WSL for Linux/GPU tools and Windows for host administration, filesystem, services, and PowerShell commands.
+To expose the Windows host itself (PowerShell), run `scripts/gpu-node/setup-windows-ssh.ps1` once from an elevated PowerShell on Desktop 5060. It installs/configures Windows OpenSSH on Tailscale TCP 2224, sets PowerShell as the default shell, and enables password login for first-time key bootstrap. The app itself never stores the password; after confirming key login, set `PasswordAuthentication no` in `%ProgramData%\ssh\sshd_config` and restart `sshd`. The app then shows a separate **Desktop 5060 Windows** target; use WSL for Linux/GPU tools and Windows for host administration, filesystem, services, and PowerShell commands.
 
 Health checks:
 
