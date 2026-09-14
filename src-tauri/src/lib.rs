@@ -1,3 +1,4 @@
+mod communication;
 mod device;
 mod tailscale;
 mod terminal;
@@ -10,6 +11,11 @@ async fn get_lab_status() -> tailscale::LabOverview {
     tauri::async_runtime::spawn_blocking(tailscale::read_lab_overview)
         .await
         .unwrap_or_else(|error| tailscale::LabOverview::unavailable(true, Some(error.to_string())))
+}
+
+#[tauri::command]
+fn get_node_catalog() -> communication::NodeCatalog {
+    communication::catalog()
 }
 
 #[tauri::command]
@@ -29,6 +35,7 @@ pub fn run() {
         .manage(terminal::TerminalState::default())
         .invoke_handler(tauri::generate_handler![
             get_lab_status,
+            get_node_catalog,
             toggle_fullscreen,
             terminal::connect_ssh,
             terminal::terminal_write,
