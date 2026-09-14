@@ -24,6 +24,12 @@ The current Tailscale IP is always read from local `tailscale.exe status --json`
 
 ## Install on the laptop
 
+Prebuilt 0.2.0 downloads are committed for machines that do not have the Tauri build toolchain:
+
+- [Windows MSI](release/Kian%20Remote%20Lab_0.2.0_x64_en-US.msi)
+- [VS Code VSIX](release/kian-remote-lab-0.2.0.vsix)
+- [SHA-256 checksums](release/SHA256SUMS.txt)
+
 Prerequisites:
 
 - Tailscale, logged in to the same tailnet
@@ -48,8 +54,8 @@ npm run extension:package
 Install the generated artifacts:
 
 ```powershell
-Start-Process ".\src-tauri\target\release\bundle\msi\Kian Remote Lab_0.2.0_x64_en-US.msi"
-code --install-extension .\vscode-extension\kian-remote-lab-0.2.0.vsix --force
+Start-Process ".\release\Kian Remote Lab_0.2.0_x64_en-US.msi"
+code --install-extension .\release\kian-remote-lab-0.2.0.vsix --force
 ```
 
 The exact MSI filename can vary slightly; it is always under `src-tauri/target/release/bundle/msi/`.

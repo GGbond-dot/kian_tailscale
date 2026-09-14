@@ -9,6 +9,7 @@ lerna-debug.log*
 
 node_modules
 *.vsix
+!release/*.vsix
 dist
 dist-ssr
 /tmp/
