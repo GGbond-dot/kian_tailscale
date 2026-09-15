@@ -61,6 +61,16 @@ Invoke-Wsl @("-d", $Distro, "-u", "root", "--", "systemctl", "enable", "ssh")
 Invoke-Wsl @("-d", $Distro, "-u", "root", "--", "systemctl", "restart", "ssh")
 
 New-Item -ItemType Directory -Path $BridgeInstallDirectory -Force | Out-Null
+$InstalledBridgeScript = Join-Path $BridgeInstallDirectory "tcp-bridge.cjs"
+$ExistingListener = Get-NetTCPConnection -LocalAddress "127.0.0.1" -LocalPort 2223 -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1
+if ($ExistingListener) {
+    $ExistingProcess = Get-CimInstance Win32_Process -Filter "ProcessId = $($ExistingListener.OwningProcess)"
+    if (-not $ExistingProcess -or $ExistingProcess.CommandLine -notlike "*$InstalledBridgeScript*") {
+        throw "Port 2223 is occupied by a process other than the Kian Remote Lab bridge"
+    }
+    Stop-Process -Id $ExistingListener.OwningProcess -Force
+    Wait-Process -Id $ExistingListener.OwningProcess -Timeout 5 -ErrorAction SilentlyContinue
+}
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot "tcp-bridge.cjs") -Destination $BridgeInstallDirectory -Force
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot "start-bridge.ps1") -Destination $BridgeInstallDirectory -Force
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot "start-bridge-hidden.vbs") -Destination $BridgeInstallDirectory -Force
