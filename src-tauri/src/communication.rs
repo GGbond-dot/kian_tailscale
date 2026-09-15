@@ -20,7 +20,13 @@ pub(crate) struct NodeDescriptor {
     pub(crate) capabilities: &'static [&'static str],
 }
 
-const SERVER_CAPABILITIES: &[&str] = &["status", "capabilities", "terminal", "file-browse"];
+const SERVER_CAPABILITIES: &[&str] = &[
+    "status",
+    "capabilities",
+    "terminal",
+    "file-browse",
+    "ros-visualization",
+];
 const WSL_CAPABILITIES: &[&str] = &[
     "status",
     "capabilities",
@@ -28,6 +34,7 @@ const WSL_CAPABILITIES: &[&str] = &[
     "gpu",
     "training-job",
     "file-browse",
+    "ros-visualization",
 ];
 const WINDOWS_CAPABILITIES: &[&str] = &[
     "status",

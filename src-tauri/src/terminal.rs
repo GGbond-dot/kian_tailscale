@@ -11,7 +11,7 @@ use std::{
 };
 use tauri::{AppHandle, Emitter, Manager, State, WebviewWindow};
 
-use crate::{device, tailscale};
+use crate::{device, gui, tailscale};
 
 const SSH_PATH: &str = r"C:\Windows\System32\OpenSSH\ssh.exe";
 const DEFAULT_COLS: u16 = 100;
@@ -60,6 +60,7 @@ struct TerminalExit {
 pub(crate) struct ConnectionInfo {
     session_id: u64,
     target: String,
+    gui_forwarding: bool,
 }
 
 fn lock_sessions(
@@ -109,6 +110,7 @@ pub(crate) fn connect_ssh(
     state: State<'_, TerminalState>,
     terminal_id: String,
     device_id: String,
+    gui_forwarding: bool,
 ) -> Result<ConnectionInfo, String> {
     if terminal_id.is_empty() || terminal_id.len() > 128 {
         return Err("Invalid terminal identifier".to_string());
@@ -118,6 +120,9 @@ pub(crate) fn connect_ssh(
     }
 
     let profile = device::profile(&device_id)?;
+    if gui_forwarding && !gui::supports_device(profile.id) {
+        return Err("GUI forwarding is available only for Linux nodes".to_string());
+    }
     let overview = tailscale::read_lab_overview();
     if !overview.tailscale_installed {
         return Err("Tailscale Not Found".to_string());
@@ -140,6 +145,11 @@ pub(crate) fn connect_ssh(
         return Err("DK2500 returned an invalid Tailscale IP".to_string());
     }
 
+    if gui_forwarding {
+        let gui_state = app.state::<gui::GuiState>();
+        gui::ensure_x_server(&gui_state)?;
+    }
+
     let pair = native_pty_system()
         .openpty(PtySize {
             rows: DEFAULT_ROWS,
@@ -155,12 +165,18 @@ pub(crate) fn connect_ssh(
     // terminal forever. This is ten minutes rather than OpenSSH's usual
     // three missed replies (90 seconds with the interval above).
     command.args(["-o", "ServerAliveCountMax=20"]);
+    if gui_forwarding {
+        command.args(["-Y", "-o", "ForwardX11Trusted=yes"]);
+    }
     if profile.ssh_port != 22 {
         command.args(["-p", &profile.ssh_port.to_string()]);
     }
     let target = format!("{}@{ip}", profile.ssh_user);
     command.arg(&target);
     command.env("TERM", "xterm-256color");
+    if gui_forwarding {
+        command.env("DISPLAY", gui::display_value());
+    }
 
     let mut child = pair
         .slave
@@ -238,6 +254,7 @@ pub(crate) fn connect_ssh(
         } else {
             format!("{target}:{}", profile.ssh_port)
         },
+        gui_forwarding,
     })
 }
 

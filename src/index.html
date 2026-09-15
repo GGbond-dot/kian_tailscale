@@ -70,6 +70,11 @@
           </dl>
 
           <div class="action-stack">
+            <label class="gui-toggle" title="Forward Linux GUI windows such as RViz, rqt, and turtlesim">
+              <input id="gui-forwarding" type="checkbox" />
+              <span class="toggle-track" aria-hidden="true"><span></span></span>
+              <span><strong>GUI forwarding</strong><small>RVIZ / RQT / TURTLESIM</small></span>
+            </label>
             <button id="connect" class="primary" type="button" title="Connect or disconnect (Ctrl+Shift+Enter)" disabled>
               <span class="connect-symbol" aria-hidden="true">&gt;_</span>
               <span class="connect-label">Connect</span>
@@ -77,6 +82,10 @@
             <button id="open-vscode" class="vscode-action" type="button" title="Open selected node with VS Code Remote - SSH (Ctrl+Shift+O)" disabled>
               <span aria-hidden="true">&lt;/&gt;</span>
               <span>Open in VS Code</span>
+            </button>
+            <button id="open-visualization" class="visualize-action" type="button" title="Open ROS topics in Foxglove (Ctrl+Shift+G)" disabled>
+              <span aria-hidden="true">◎</span>
+              <span>Visualize ROS</span>
             </button>
           </div>
           <div class="status-line">

@@ -13,6 +13,7 @@ const DEVICE_FALLBACKS = {
 
 let refreshing = false;
 let openingVsCode = false;
+let openingVisualization = false;
 let currentOverview = null;
 let activeTerminalId = null;
 let terminalNumber = 0;
@@ -33,6 +34,8 @@ const elements = {
   connect: document.querySelector("#connect"),
   connectLabel: document.querySelector(".connect-label"),
   openVsCode: document.querySelector("#open-vscode"),
+  openVisualization: document.querySelector("#open-visualization"),
+  guiForwarding: document.querySelector("#gui-forwarding"),
   terminalTabs: document.querySelector("#terminal-tabs"),
   terminalStack: document.querySelector("#terminal-stack"),
   terminalTarget: document.querySelector("#terminal-target"),
@@ -126,6 +129,11 @@ function updateActiveControls() {
   elements.connect.classList.toggle("danger", connected);
   elements.connect.disabled = !workspace || workspace.connecting || (!connected && !canConnect(workspace));
   elements.openVsCode.disabled = openingVsCode || !workspace || !canConnect(workspace);
+  const supportsVisualization = workspace && workspace.deviceId !== "desktop-5060-windows";
+  elements.openVisualization.disabled = openingVisualization || !supportsVisualization || !canConnect(workspace);
+  const supportsGui = workspace && workspace.deviceId !== "desktop-5060-windows";
+  elements.guiForwarding.checked = Boolean(workspace?.guiForwarding);
+  elements.guiForwarding.disabled = !supportsGui || workspace?.connecting || connected;
   elements.terminalTarget.textContent = workspace?.target ?? "DISCONNECTED";
   renderNodeSelection(workspace);
 }
@@ -280,7 +288,7 @@ function createTerminal(deviceId = "dk2500") {
   const fitAddon = new FitAddon();
   terminal.loadAddon(fitAddon);
   const workspace = {
-    clientId, deviceId, sessionId: null, target: "DISCONNECTED", connecting: false,
+    clientId, deviceId, sessionId: null, target: "DISCONNECTED", connecting: false, guiForwarding: false,
     opened: false, resizePending: false, wheelRemainder: 0, writeQueue: Promise.resolve(),
     terminal, fitAddon, container, tab,
   };
@@ -326,10 +334,14 @@ async function connectWorkspace(workspace) {
     const connection = await invoke("connect_ssh", {
       terminalId: workspace.clientId,
       deviceId: workspace.deviceId,
+      guiForwarding: workspace.guiForwarding,
     });
     workspace.sessionId = connection.sessionId;
     workspace.target = connection.target.toUpperCase();
     workspace.tab.classList.add("connected");
+    if (connection.guiForwarding) {
+      workspace.terminal.writeln("\x1b[35mGUI forwarding ready. Linux GUI programs will open on this laptop.\x1b[0m");
+    }
     resizeWorkspace(workspace);
     workspace.terminal.focus();
   } catch (error) {
@@ -377,6 +389,24 @@ async function openInVsCode() {
   }
 }
 
+async function openVisualization() {
+  const workspace = activeWorkspace();
+  if (openingVisualization || !workspace || workspace.deviceId === "desktop-5060-windows" || !canConnect(workspace)) return;
+  openingVisualization = true;
+  updateActiveControls();
+  const info = deviceInfo(workspace.deviceId);
+  elements.message.textContent = `Starting ROS visualization on ${info.displayName}...`;
+  try {
+    const launch = await invoke("open_ros_visualization", { deviceId: workspace.deviceId });
+    elements.message.textContent = `${launch.target} ROS visualization ready on local port ${launch.localPort}`;
+  } catch (error) {
+    elements.message.textContent = `Unable to visualize ROS: ${error}`;
+  } finally {
+    openingVisualization = false;
+    updateActiveControls();
+  }
+}
+
 function cycleTerminal(direction) {
   const ids = Array.from(workspaces.keys());
   if (ids.length < 2) return;
@@ -404,6 +434,15 @@ await listen("terminal-exit", ({ payload }) => {
 elements.connect.addEventListener("click", toggleActiveConnection);
 elements.newTerminal.addEventListener("click", createAndMaybeConnect);
 elements.openVsCode.addEventListener("click", openInVsCode);
+elements.openVisualization.addEventListener("click", openVisualization);
+elements.guiForwarding.addEventListener("change", () => {
+  const workspace = activeWorkspace();
+  if (!workspace || workspace.sessionId != null || workspace.connecting) return;
+  workspace.guiForwarding = elements.guiForwarding.checked;
+  elements.message.textContent = workspace.guiForwarding
+    ? "GUI forwarding enabled for the next SSH connection"
+    : "GUI forwarding disabled";
+});
 elements.refresh.addEventListener("click", refreshStatus);
 for (const option of elements.nodeOptions) {
   option.addEventListener("click", () => selectDevice(option.dataset.deviceId));
@@ -440,6 +479,9 @@ window.addEventListener("keydown", async (event) => {
   } else if (event.ctrlKey && event.shiftKey && key === "o") {
     event.preventDefault();
     openInVsCode();
+  } else if (event.ctrlKey && event.shiftKey && key === "g") {
+    event.preventDefault();
+    openVisualization();
   } else if (event.ctrlKey && event.shiftKey && event.key === "Enter") {
     event.preventDefault();
     toggleActiveConnection();

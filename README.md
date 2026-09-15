@@ -19,6 +19,8 @@ The current Tailscale IP is always read from local `tailscale.exe status --json`
 - Multiple terminal tabs inside one App window.
 - Interactive SSH, Ctrl+C, ANSI color, resize, and full-screen terminal programs.
 - Opens a selected node with VS Code Remote - SSH.
+- Opens ROS 2 maps, TF, LaserScan, point clouds, images, and other topics in Foxglove through a local-only SSH tunnel.
+- Optional X11 GUI forwarding opens RViz, rqt, turtlesim, and other Linux GUI programs as local Windows windows.
 - VS Code side panel with per-node Open Code and Terminal actions.
 - Does not read, transmit, or store SSH passwords.
 - Backends accept only fixed device IDs; the UI cannot submit an arbitrary executable, host, user, port, or shell command.
@@ -117,6 +119,41 @@ schtasks /Query /TN "Kian Remote Lab GPU Bridge" /V /FO LIST
 & 'C:\Program Files\Tailscale\tailscale.exe' serve status
 ssh -p 2222 kian@desktop-ltuqmcm
 ```
+
+## ROS visualization on DK2500 and Desktop 5060 WSL
+
+Foxglove Bridge runs on each Linux node at `127.0.0.1:8765`. The App's **Visualize ROS** button starts the remote bridge, creates an SSH tunnel (`127.0.0.1:18765` for DK2500 or `:18766` for Desktop 5060 WSL), and opens Foxglove in Google Chrome. The ROS WebSocket is never exposed directly on Tailscale or the LAN.
+
+Copy `scripts/visualization` to each Linux node, then run this once on that node:
+
+```bash
+cd ~/kian_tailscale/scripts/visualization
+./setup-node.sh
+```
+
+The setup installs `ros-$ROS_DISTRO-foxglove-bridge` and therefore asks for the node's sudo password locally. It does not save the password. ROS Humble is used by default; set `ROS_DISTRO` before running if needed.
+
+If you do not have sudo access, use `./setup-node-user.sh`. It downloads and extracts only Foxglove Bridge and its `rosx_introspection` dependency under `~/.local/share/kian-remote-lab`; it does not modify system ROS files.
+
+The launcher automatically sources `/opt/ros/$ROS_DISTRO/setup.bash` and the first available overlay among `~/ros2_ws`, `~/dev_ws`, and `~/robot_ws`. For another workspace, put its absolute directory path on the first line of:
+
+```text
+~/.config/kian-remote-lab/ros-workspace
+```
+
+Start the robot's mapping nodes normally, select the matching Linux node in the App, and click **Visualize ROS**. In Foxglove, add panels such as 3D, Map, Image, Plot, and Raw Messages. Select **Desktop 5060 WSL**, not the Windows host entry, for ROS running in WSL.
+
+### Native Linux GUI windows
+
+Install VcXsrv once on the laptop (`winget install --id marha.VcXsrv`). Before connecting a Linux terminal, enable **GUI forwarding** in the App. The App starts VcXsrv with its installed localhost access list and connects SSH with trusted X11 forwarding. GUI commands entered in that terminal then open as Windows windows:
+
+```bash
+source /opt/ros/humble/setup.bash
+ros2 run turtlesim turtlesim_node
+# or: rviz2
+```
+
+The switch is deliberately off by default. Use Foxglove for routine mapping visualization and native GUI forwarding when the original RViz/rqt interface is required. VcXsrv processes started by the App are stopped when the App exits.
 
 If an existing terminal disconnects, check whether Windows or WSL restarted:
 
