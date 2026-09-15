@@ -2,6 +2,11 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
+import {
+  installTerminalInputResidueGuard,
+  isWindowsFocusReport,
+  windowsNavigationInput,
+} from "./terminal-input.js";
 import "@xterm/xterm/css/xterm.css";
 
 const REFRESH_INTERVAL_MS = 4_000;
@@ -243,6 +248,7 @@ async function closeTerminal(clientId) {
   await disconnectWorkspace(workspace, false);
   await workspace.ready;
   workspace.resizeObserver.disconnect();
+  workspace.disposeInputGuard?.();
   workspace.terminal.dispose();
   workspace.tab.remove();
   workspace.container.remove();
@@ -289,16 +295,39 @@ function createTerminal(deviceId = "dk2500") {
   terminal.loadAddon(fitAddon);
   const workspace = {
     clientId, deviceId, sessionId: null, target: "DISCONNECTED", connecting: false, guiForwarding: false,
-    opened: false, resizePending: false, wheelRemainder: 0, writeQueue: Promise.resolve(),
+    opened: false, resizePending: false, wheelRemainder: 0, composing: false,
+    clearCommittedInput: null, disposeInputGuard: null, writeQueue: Promise.resolve(),
     terminal, fitAddon, container, tab,
   };
   installTerminalScrollHandler(workspace);
+  terminal.attachCustomKeyEventHandler((event) => {
+    if (event.type !== "keydown") return true;
+
+    if ((event.key === "PageUp" || event.key === "PageDown") &&
+        terminal.buffer.active === terminal.buffer.normal && !event.ctrlKey && !event.altKey) {
+      event.preventDefault();
+      terminal.scrollPages(event.key === "PageUp" ? -1 : 1);
+      return false;
+    }
+
+    const navigation = windowsNavigationInput(workspace.deviceId, event);
+    if (navigation && workspace.sessionId != null) {
+      event.preventDefault();
+      terminal.input(navigation, true);
+      return false;
+    }
+    return true;
+  });
   workspace.resizeObserver = new ResizeObserver(() => resizeWorkspace(workspace));
   workspace.resizeObserver.observe(container);
   workspaces.set(clientId, workspace);
 
   terminal.onData((data) => {
+    // Prevent xterm's hidden textarea from replaying previously committed
+    // text when a Windows CJK IME later reports keyCode 229.
+    workspace.clearCommittedInput?.();
     if (workspace.sessionId == null) return;
+    if (isWindowsFocusReport(workspace.deviceId, data)) return;
     const sessionId = workspace.sessionId;
     workspace.writeQueue = workspace.writeQueue
       .then(() => invoke("terminal_write", { sessionId, data }))
@@ -311,6 +340,7 @@ function createTerminal(deviceId = "dk2500") {
   workspace.ready = new Promise((resolve) => {
     requestAnimationFrame(() => {
       terminal.open(container);
+      installTerminalInputResidueGuard(workspace);
       workspace.opened = true;
       fitAddon.fit();
       terminal.writeln(`\x1b[90m${deviceInfo(deviceId)?.displayName ?? deviceId} ready. Select Connect to start SSH.\x1b[0m`);

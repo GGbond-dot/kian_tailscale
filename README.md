@@ -18,6 +18,9 @@ The current Tailscale IP is always read from local `tailscale.exe status --json`
 - Embedded xterm.js terminals backed by Windows ConPTY and `ssh.exe`.
 - Multiple terminal tabs inside one App window.
 - Interactive SSH, Ctrl+C, ANSI color, resize, and full-screen terminal programs.
+- CJK IME-safe terminal input that clears committed hidden-textarea residue to prevent duplicated or phantom typing.
+- Filters xterm focus-in/focus-out protocol reports on the Windows OpenSSH endpoint so ConPTY cannot echo them as `[I` / `[O` input.
+- Restores Windows PowerShell navigation through app-scoped PSReadLine bindings; arrow, Home, End, and Delete keys work normally, while PageUp/PageDown scroll local terminal history.
 - Opens a selected node with VS Code Remote - SSH.
 - Opens ROS 2 maps, TF, LaserScan, point clouds, images, and other topics in Foxglove through a local-only SSH tunnel.
 - Optional X11 GUI forwarding opens RViz, rqt, turtlesim, and other Linux GUI programs as local Windows windows.

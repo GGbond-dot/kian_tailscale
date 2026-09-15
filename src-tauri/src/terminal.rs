@@ -17,6 +17,16 @@ const SSH_PATH: &str = r"C:\Windows\System32\OpenSSH\ssh.exe";
 const DEFAULT_COLS: u16 = 100;
 const DEFAULT_ROWS: u16 = 28;
 const MAX_INPUT_BYTES: usize = 64 * 1024;
+const WINDOWS_POWERSHELL_BOOTSTRAP: &str = concat!(
+    "powershell.exe -NoLogo -NoExit -Command \"",
+    "Set-PSReadLineKeyHandler -Chord Ctrl+p -Function PreviousHistory; ",
+    "Set-PSReadLineKeyHandler -Chord Ctrl+n -Function NextHistory; ",
+    "Set-PSReadLineKeyHandler -Chord Ctrl+b -Function BackwardChar; ",
+    "Set-PSReadLineKeyHandler -Chord Ctrl+f -Function ForwardChar; ",
+    "Set-PSReadLineKeyHandler -Chord Ctrl+a -Function BeginningOfLine; ",
+    "Set-PSReadLineKeyHandler -Chord Ctrl+e -Function EndOfLine; ",
+    "Set-PSReadLineKeyHandler -Chord Ctrl+d -Function DeleteChar\""
+);
 
 pub(crate) struct TerminalState {
     sessions: Mutex<HashMap<u64, Arc<PtySession>>>,
@@ -171,8 +181,18 @@ pub(crate) fn connect_ssh(
     if profile.ssh_port != 22 {
         command.args(["-p", &profile.ssh_port.to_string()]);
     }
+    // Supplying the fixed PowerShell bootstrap below makes OpenSSH treat the
+    // connection as a remote command. It will not reliably allocate a remote
+    // PTY in that mode unless explicitly forced, which causes doubled command
+    // echo and makes terminal-only programs (such as Codex) reject stdin.
+    if profile.id == "desktop-5060-windows" {
+        command.arg("-tt");
+    }
     let target = format!("{}@{ip}", profile.ssh_user);
     command.arg(&target);
+    if profile.id == "desktop-5060-windows" {
+        command.arg(WINDOWS_POWERSHELL_BOOTSTRAP);
+    }
     command.env("TERM", "xterm-256color");
     if gui_forwarding {
         command.env("DISPLAY", gui::display_value());
